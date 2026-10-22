@@ -21,9 +21,9 @@ end
 class PokeBattle_RealBattlePeer
   alias megas_pbOnLeavingBattle pbOnLeavingBattle unless method_defined?(:megas_pbOnLeavingBattle)
   def pbOnLeavingBattle(battle, pkmn, usedInBattle, endBattle = false)
-    # Permanent: a Mega that stays one isn't turned back (that would reset its
-    # KIF-ER ability pick); the sync after the battle sorts out the rest
-    pkmn.makeUnmega if endBattle && pkmn && Megas.current(pkmn) && !(Megas.permanent? && pkmn.mega?)
+    # Permanent: a Mega or Primal that stays one isn't turned back (that would
+    # reset its KIF-ER ability pick); the sync after the battle sorts out the rest
+    pkmn.makeUnmega if endBattle && pkmn && Megas.current(pkmn) && !(Megas.permanent? && (pkmn.mega? || pkmn.primal?))
     megas_pbOnLeavingBattle(battle, pkmn, usedInBattle, endBattle)
   end
 end

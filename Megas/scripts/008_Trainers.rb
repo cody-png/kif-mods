@@ -3,7 +3,8 @@
 # Champion (PIF's GYM_LEADERS_TYPES), and the Rival, all only after Silph Co
 # (Cody, 2026-10-19: nobody has Megas before the player can buy stones). Their ace,
 # the highest-level Pokémon that has a Mega (the last one on a tie), gets its
-# stone at the start of battle. Randomized teams get the same rule. A team
+# stone at the start of battle (a fused ace: for a random half that has a
+# Mega). Randomized teams get the same rule. A team
 # whose data already gives someone a stone is left alone.
 #===============================================================================
 module Megas
@@ -19,14 +20,27 @@ module Megas
   def self.give_ace_stone(party)
     return if party.any? { |pk| pk && stone_species.key?(pk.item_id) }
     ace = nil
-    stone = nil
+    picks = nil
     party.each do |pk|
-      next if !pk || pk.egg? || pk.isFusion?
-      _id, m = DATA.find { |_i, d| d[:base] == pk.species && d[:stone] && !d[:primal] && usable?(d) }
-      next if !m
-      ace, stone = pk, m[:stone] if !ace || pk.level >= ace.level
+      next if !pk || pk.egg?
+      found = ace_picks(pk)
+      next if found.empty?
+      ace, picks = pk, found if !ace || pk.level >= ace.level
     end
-    ace.item = stone if ace
+    return if !ace
+    half, stone = picks.sample   # a fused ace: a random half (Cody, 2026-10-21)
+    ace.instance_variable_set(:@megas_fusion_half, half) if half   # a stone that fits both halves
+    ace.item = stone
+  end
+
+  # [[half, stone], ...] for each half with a usable Mega; half is nil unfused
+  def self.ace_picks(pk)
+    return [] if pk.respond_to?(:isTripleFusion?) && pk.isTripleFusion?
+    halves = pk.isFusion? ? fusion_halves(pk).zip([:head, :body]) : [[pk.species, nil]]
+    return halves.filter_map do |sp, half|
+      _id, m = DATA.find { |_i, d| d[:base] == sp && d[:stone] && !d[:primal] && usable?(d) }
+      [half, m[:stone]] if m
+    end
   end
 end
 

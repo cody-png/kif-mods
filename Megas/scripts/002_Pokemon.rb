@@ -35,6 +35,8 @@ module Megas
   # able holder in party order gets it at the next check. Fainted Pokémon are
   # never Mega, so a revived former Mega comes back normal. Pokémon in the PC
   # are never Mega.
+  # Primals stay in both Permanent modes (Cody, 2026-10-21) while able and
+  # holding their orb; they don't take the One per party slot.
   def self.sync(party)
     return if !party
     sync_boxes
@@ -44,6 +46,7 @@ module Megas
     party.each do |pk|
       next if !pk
       want = holders.any? { |h| h.equal?(pk) } ? available(pk, :mega) : nil
+      want ||= current(pk) if permanent? && pk.primal? && pk.hp > 0 && current(pk) == available(pk, :primal)
       next if current(pk) == want
       pk.makeUnmega if current(pk)
       pk.makeMega if want
