@@ -37,7 +37,7 @@
 #                     per battle.
 #
 #   Not coded yet: none.
-#   Not added (ER has them, PIF doesn't): Eerie Fog, Eerie Spell, Vexing
+#   Eerie Fog and Eerie Spell: 070. Not added (ER has them, PIF doesn't): Vexing
 #   Void, Spectral Flame, Revival Blessing, Castform's fog form.
 #===============================================================================
 KIFER.feature(:fog, "Fog", "Elite Redux's fog weather (Low Visibility and similar abilities).")
