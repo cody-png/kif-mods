@@ -65,7 +65,7 @@
 #   Moves used by an ability are real move uses (025's use_extra_move).
 #
 # Not coded yet:
-#   Current Crash – Thundercall's Smite is an ER move PIF doesn't have
+#   (Current Crash: Reckless + Thundercall through 028's parts; Thundercall is in 071)
 #   (Cryostasis, Drakelp Head, Flame Coat and batch I's Backup Power: 042)
 #===============================================================================
 KIFER.er_code(:COSMICDUST, :COSMICWINGS, :CRAVING, :CRUSHINGJAW, :CRYOPROFICIENCY,

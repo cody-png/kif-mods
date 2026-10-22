@@ -87,7 +87,8 @@ module KIFER
       :CHANDELIER       => [:ILLUMINATE, :PYROMANCY],
       :CHESTNUTSHIELD   => [:IMPENETRABLE, :BULLETPROOF],
       :CONJUREROFDECEIT => [:MAGICGUARD, :MAGICBOUNCE],
-      :CONTEMPT         => [:UNAWARE, :DEFIANT]
+      :CONTEMPT         => [:UNAWARE, :DEFIANT],
+      :CURRENTCRASH     => [:RECKLESS, :THUNDERCALL]   # Thundercall: 071
     }.freeze
 
     # part => the abilities that include it

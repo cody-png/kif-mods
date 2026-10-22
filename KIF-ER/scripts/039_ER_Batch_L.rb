@@ -57,7 +57,7 @@
 #
 # Not coded yet:
 #   (Rejection, Talon Trap: 042)
-#   Thundercall   – its follow-up is Smite, which PIF doesn't have
+#   (Thundercall: 071, with Smite)
 #===============================================================================
 KIFER.er_code(:RESTRAININGORDER, :ROSEGARDEN, :SANDTITAN, :SEPIALENS, :SHARPEDGES,
               :SHATTEREDARMOR, :SHINYLIGHTNING, :SHOCKINGMAW, :SINISTERCLAWS,
