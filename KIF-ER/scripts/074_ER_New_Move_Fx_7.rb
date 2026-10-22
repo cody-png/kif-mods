@@ -94,6 +94,8 @@ module KIFER
         user.pbBurn(target) if user.pbCanBurn?(target, false)
       when :obstruct
         user.pbLowerStatStage(:DEFENSE, 2, target) if user.pbCanLowerStatStage?(:DEFENSE, target)
+      when :silk   # Silk Trap (075)
+        user.pbLowerStatStage(:SPEED, 1, target) if user.pbCanLowerStatStage?(:SPEED, target)
       end
     end
   end
