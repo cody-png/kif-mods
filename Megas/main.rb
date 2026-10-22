@@ -16,6 +16,7 @@ end
 
 load File.join(Megas::ROOT, "data", "megas_data.rb") unless defined?(Megas::DATA)
 load File.join(Megas::ROOT, "data", "shop.rb") unless defined?(Megas::SHOP)
+load File.join(Megas::ROOT, "data", "megas_dex.rb") unless defined?(Megas::DEX)
 # One broken file is logged and skipped; the rest of the mod still loads
 Dir[File.join(Megas::ROOT, "scripts", "*.rb")].sort.each do |f|
   begin

@@ -1,10 +1,10 @@
 {
   "id": "megas",
   "name": "Megas",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "author": "codydotpng",
   "description": "Mega Evolution and Primal Reversion for KIF, fusions included. 70 Megas, Primal Kyogre and Groudon, plus 62 Elite Redux Megas with KIF: Elite Redux. Once per battle, Permanent or Permanent+ (Mod Settings).",
-  "credits": ["Mega sprites and some stone icons from Pokemon Elite Redux (Elite Redux team).", "Stone icons from the Mega Stones mod by Yoko.", "Chimechite and Eelektrossite icons from PokeRogue (pokerogue-assets)."],
+  "credits": ["Mega sprites and some stone icons from Pokemon Elite Redux (Elite Redux team).", "Stone icons from the Mega Stones mod by Yoko.", "Chimechite and Eelektrossite icons from PokeRogue (pokerogue-assets).", "Mega Pokedex entries from pokeemerald-expansion."],
   "scripts": ["main.rb"],
   "dependencies": [],
   "load_after": ["kif_er"],
