@@ -10,7 +10,7 @@
 #   @kifer_id. Pokemon::Move#id answers the ER move while Moves is applied,
 #   otherwise the stand-in, so a save loads and plays without the mod (the
 #   Pokemon knows the stand-in). The Move Relearner's first / learned move
-#   lists keep the stand-in too, and the randomizer never rolls ER-only moves
+#   lists keep ER moves in lists of their own, and the randomizer never rolls ER-only moves
 #   (MOVES_PLAN question E). Animations: the stand-in's.
 #===============================================================================
 module KIFER
@@ -161,32 +161,86 @@ class Pokemon
 end
 
 #-------------------------------------------------------------------------------
-# Lists in the save keep PIF moves only
+# Lists in the save keep PIF moves only. An ER-only move goes in @kifer_first /
+# @kifer_learned instead (ER ids, plain symbols), which first_moves /
+# learned_moves add while it is in play, so the Move Relearner offers the ER
+# move, never its stand-in. Without the mod those lists are unused.
 #-------------------------------------------------------------------------------
 class Pokemon
-  def kifer_nm_saved(id)
-    return id unless id.is_a?(Symbol) && KIFER::NewMoves.er_only?(id)
-    return KIFER::NewMoves.stand_in(id)
+  def kifer_nm_er?(id)
+    return id.is_a?(Symbol) && KIFER::NewMoves.er_only?(id)
+  end
+
+  # the list, or no field at all when it is empty (saves without ER moves are unchanged)
+  def kifer_nm_keep(var, list)
+    return instance_variable_set(var, list) if list && !list.empty?
+    remove_instance_variable(var) if instance_variable_defined?(var)
+  end
+
+  def kifer_nm_in_play(list)
+    return [] unless list && KIFER::Moves.applied?
+    return list.select { |m| GameData::Move::DATA.key?(m) }
+  end
+
+  def first_moves
+    er = kifer_nm_in_play(@kifer_first)
+    return er.empty? ? @first_moves : (@first_moves || []) | er
+  end
+
+  alias kifer_nm_set_first_moves first_moves= unless method_defined?(:kifer_nm_set_first_moves)
+  def first_moves=(list)
+    return kifer_nm_set_first_moves(list) unless list.is_a?(Array)
+    kifer_nm_keep(:@kifer_first, list.select { |m| kifer_nm_er?(m) })
+    kifer_nm_set_first_moves(list.reject { |m| kifer_nm_er?(m) })
+  end
+
+  def learned_moves
+    er = kifer_nm_in_play(@kifer_learned)
+    return er.empty? ? @learned_moves : (@learned_moves || []) | er
   end
 
   alias kifer_nm_record_first_moves record_first_moves unless method_defined?(:kifer_nm_record_first_moves)
   def record_first_moves
     kifer_nm_record_first_moves
-    @first_moves.map! { |m| kifer_nm_saved(m) }.uniq! if @first_moves
+    self.first_moves = @first_moves if @first_moves
   end
 
   alias kifer_nm_add_first_move add_first_move unless method_defined?(:kifer_nm_add_first_move)
   def add_first_move(move_id)
     m = GameData::Move.try_get(move_id)
-    return kifer_nm_add_first_move(m ? kifer_nm_saved(m.id) : move_id)
+    return kifer_nm_add_first_move(move_id) unless m && kifer_nm_er?(m.id)
+    @kifer_first = (@kifer_first || []) | [m.id]
+  end
+
+  alias kifer_nm_remove_first_move remove_first_move unless method_defined?(:kifer_nm_remove_first_move)
+  def remove_first_move(move_id)
+    m = GameData::Move.try_get(move_id)
+    kifer_nm_keep(:@kifer_first, @kifer_first - [m.id]) if m && @kifer_first
+    return kifer_nm_remove_first_move(move_id)
+  end
+
+  alias kifer_nm_clear_first_moves clear_first_moves unless method_defined?(:kifer_nm_clear_first_moves)
+  def clear_first_moves
+    kifer_nm_keep(:@kifer_first, nil)
+    return kifer_nm_clear_first_moves
   end
 
   if method_defined?(:add_learned_move)
     alias kifer_nm_add_learned_move add_learned_move unless method_defined?(:kifer_nm_add_learned_move)
     def add_learned_move(move)
       id = move.is_a?(Symbol) ? move : (move.respond_to?(:id) ? move.id : move)
-      return kifer_nm_add_learned_move(kifer_nm_saved(id))
+      return kifer_nm_add_learned_move(id) unless kifer_nm_er?(id)
+      @kifer_learned = (@kifer_learned || []) | [id]
     end
+  end
+
+  # PIF's clone copies @first_moves by hand; the ER lists must not be shared either
+  alias kifer_nm_clone clone unless method_defined?(:kifer_nm_clone)
+  def clone
+    ret = kifer_nm_clone
+    ret.instance_variable_set(:@kifer_first, @kifer_first.clone) if @kifer_first
+    ret.instance_variable_set(:@kifer_learned, @kifer_learned.clone) if @kifer_learned
+    return ret
   end
 end
 
