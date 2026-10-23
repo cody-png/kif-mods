@@ -51,7 +51,7 @@
 #       little worse on a frostbitten target (cures the target)
 #     - an enraged attacker avoids an attack whose recoil would knock it out
 #       without knocking out the target
-#   End-of-turn HP (DemICE's EndofTurnHPChanges): frostbite and bleeding 1/16,
+#   End-of-turn HP (DemICE's EndofTurnHPChanges): frostbite 1/8, bleeding 1/16,
 #     Toxic Terrain 1/16, no healing while bleeding
 #   Items: no HP-only item (Potion...) on a bleeding Pokemon. DemICE's AI
 #     cures frostbite (Ice Heal, Aspear Berry, then Full Heal-type items and
@@ -706,8 +706,9 @@ module KIFER
 
     def extra_chip(user, rest)
       c = 0.0
-      if (bleeding?(user) || frostbitten?(user)) && !rest && user.takesIndirectDamage?
-        c += 0.0625
+      if !rest && user.takesIndirectDamage?
+        c += 0.125 if frostbitten?(user)    # 031's frostbite_damage: 1/8
+        c += 0.0625 if bleeding?(user)      # bleeding: 1/16
       end
       c += 0.0625 if toxic_chip?(user)
       return c
@@ -805,7 +806,7 @@ module KIFER
       pick = list.find do |i|
         items.include?(i) &&
           battle.pbCanUseItemOnPokemon?(i, pkmn, b, battle.scene, false) &&
-          ItemHandlers.triggerCanUseInBattle(i, pkmn, b, nil, false, ai, battle.scene, false)
+          ItemHandlers.triggerCanUseInBattle(i, pkmn, b, nil, false, battle, battle.scene, false)
       end
       return ret if !pick
       score = cure_item_score(ai, b)
@@ -958,6 +959,23 @@ class PokeBattle_AI
 
   # Switch-ins judged in the field they would make on entry
   def pbChooseBestNewEnemy(idxBattler, party, enemies, *rest)
+    # DemICE scores Baton Pass by choosing who it would pass to, which scores
+    # each candidate's moves; a candidate's own Baton Pass asks again, without
+    # end (ER learnsets give more Pokemon these moves). One look-ahead only:
+    # a nested one finds nobody (Baton Pass then counts as passing to itself).
+    if rest[2]   # batonpasscheck (after sack, activemon)
+      return nil if @kifer_ai_bp_depth.to_i > 0
+      @kifer_ai_bp_depth = 1
+      begin
+        return kifer_ai_choose_best_new_enemy(idxBattler, party, enemies, *rest)
+      ensure
+        @kifer_ai_bp_depth = 0
+      end
+    end
+    return kifer_ai_choose_best_new_enemy(idxBattler, party, enemies, *rest)
+  end
+
+  def kifer_ai_choose_best_new_enemy(idxBattler, party, enemies, *rest)
     KIFER::AI.frozen_view(@battle) do
       if !KIFER::AI.demice_on?
         if rest.empty? && KIFER::AI.pif_switch_changed?(@battle, party, enemies, idxBattler)

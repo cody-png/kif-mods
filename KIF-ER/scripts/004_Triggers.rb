@@ -99,7 +99,9 @@ module KIFER
     return handlers.send(orig, ability, *args) if !owner || inns.empty?
     # PIF's Illusion check on Mega Evolution calls the on-hit trigger with no
     # attacker and no move: the innates' on-hit effects don't apply then
-    return handlers.send(orig, ability, *args) if orig == :kifer_triggerTargetAbilityOnHit && (args[0].nil? || args[2].nil?)
+    # PIF's Mega Evolution calls this with no user or move, for Illusion only
+    # (the battler may have Illusion as an innate): only Illusion's handler runs
+    return handlers.send(orig, :ILLUSION, *args) if orig == :kifer_triggerTargetAbilityOnHit && (args[0].nil? || args[2].nil?)
     if orig == :kifer_triggerAbilityOnSwitchIn
       # once per switch-in: Skill Swap, Role Play, Trace and Mega Evolution run
       # the main ability's entry again, not the innates' (new innates still do)

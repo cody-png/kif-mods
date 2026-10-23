@@ -36,6 +36,7 @@ module KIFER
     # Scorched Earth's type against this target
     def scorched_type(target)
       t = target.pbTypes(true)
+      return :FIRE if t.empty?   # no types left (Burn Up...): Effectiveness needs one
       fire = Effectiveness.calculate(:FIRE, t[0], t[1], t[2])
       ground = target.airborne? ? 0 : Effectiveness.calculate(:GROUND, t[0], t[1], t[2])
       return ground > fire ? :GROUND : :FIRE
@@ -43,8 +44,7 @@ module KIFER
 
     # Safe Passage: the battler that came in this turn at this index
     def safe?(battle, battler)
-      s = battle.instance_variable_get(:@kifer_nm4_safe)
-      return s && s[0] == battler.index && s[1] == battle.turnCount
+      return battler.instance_variable_get(:@kifer_nm4_safe) == battle.turnCount
     end
   end
 end
@@ -103,19 +103,10 @@ class PokeBattle_Move_KERD32 < PokeBattle_Move   # Safe Passage
   end
 
   def pbEndOfMoveUsageEffect(user, targets, numHits, switchedBattlers)
-    return if user.fainted? || !@battle.pbCanChooseNonActive?(user.index)
-    @battle.pbDisplay(_INTL("{1} went back to {2}!", user.pbThis, @battle.pbGetOwnerName(user.index)))
-    @battle.pbPursuit(user.index)
-    return if user.fainted?
-    newPkmn = @battle.pbGetReplacementPokemonIndex(user.index)   # Owner chooses
-    return if newPkmn < 0
-    @battle.pbRecallAndReplace(user.index, newPkmn)
-    @battle.pbClearChoice(user.index)   # Replacement Pokémon does nothing this round
-    @battle.moldBreaker = false
-    switchedBattlers.push(user.index)
-    @battle.instance_variable_set(:@kifer_nm4_safe, [user.index, @battle.turnCount])
-    @battle.pbDisplay(_INTL("{1} is guarded on its way in!", user.pbThis))
-    user.pbEffectsOnSwitchIn(true)
+    KIFER::Fx.switch_out(@battle, user, switchedBattlers) do
+      user.instance_variable_set(:@kifer_nm4_safe, @battle.turnCount)   # the battler now holds the Pokemon that came in
+      @battle.pbDisplay(_INTL("{1} is guarded on its way in!", user.pbThis))
+    end
   end
 end
 
@@ -135,11 +126,7 @@ class PokeBattle_Move_KERD34 < PokeBattle_Move   # Berry Smash
 
   def pbEffectAfterAllHits(user, target)
     return if user.fainted? || !user.item || !user.item.is_berry?
-    item = user.item
-    @battle.pbDisplay(_INTL("{1} smashed and ate its {2}!", user.pbThis, user.itemName))
-    user.pbConsumeItem(true, false)
-    user.pbHeldItemTriggerCheck(item, false)
-    user.pbSymbiosis if !user.item
+    KIFER::Fx.eat_berry(@battle, user, _INTL("{1} smashed and ate its {2}!", user.pbThis, user.itemName))
   end
 end
 
@@ -200,6 +187,23 @@ class PokeBattle_Move_KERD39 < PokeBattle_Move   # Decorate
     target.effects[PBEffects::FocusEnergy] = 2
     @battle.pbDisplay(_INTL("{1} is getting pumped!", target.pbThis))
   end
+
+  # the AI reads pbDamagingMove? between uses: the ally choice is per use
+  def pbEndOfMoveUsageEffect(user, targets, numHits, switchedBattlers)
+    @kifer_buff = false
+    super
+  end
+end
+
+# Safe Passage (and Ghastly Echo, 073): the boost belongs to the Pokemon that
+# came in; another Pokemon taking the spot starts without it
+class PokeBattle_Battler
+  alias kifer_nm4_pbInitEffects pbInitEffects unless method_defined?(:kifer_nm4_pbInitEffects)
+  def pbInitEffects(batonPass)
+    kifer_nm4_pbInitEffects(batonPass)
+    @kifer_nm4_safe = nil
+    @kifer_nm6_echo = nil
+  end
 end
 
 # Safe Passage: 35% less damage for the Pokemon it brought in, that turn
@@ -226,25 +230,7 @@ BattleHandlers::UserAbilityEndOfMove.add(:THUNDERCALL,
 )
 KIFER.er_code(:THUNDERCALL, :CURRENTCRASH)
 
-class PokeBattle_AI
-  alias kifer_nmf4_pbGetMoveScoreFunctionCode pbGetMoveScoreFunctionCode unless method_defined?(:kifer_nmf4_pbGetMoveScoreFunctionCode)
-  def pbGetMoveScoreFunctionCode(score, move, user, target, skill = 100)
-    f = move && move.function
-    as = KIFER::NewMoveFx4::AI_AS[f]
-    return kifer_nmf4_pbGetMoveScoreFunctionCode(score, move, user, target, skill) if !as
-    move.instance_variable_set(:@function, as)   # scored as the PIF move it works like
-    begin
-      return kifer_nmf4_pbGetMoveScoreFunctionCode(score, move, user, target, skill)
-    ensure
-      move.instance_variable_set(:@function, f)
-    end
-  end
-end
-
-KIFER::NewMoveFx4::AI_AS.each_key do |c|
-  k = Object.const_get("PokeBattle_Move_#{c}")
-  KIFER::TerrainEnrage.wrap_move_class(k) if defined?(KIFER::TerrainEnrage) && KIFER::TerrainEnrage.respond_to?(:wrap_move_class)
-end
+KIFER::AIAs.add(KIFER::NewMoveFx4::AI_AS)   # AI scoring and Enrage wrap (069)
 
 KIFER::Moves.coded(:CORROSIVEGAS, function_code: "KERD29")
 KIFER::Moves.coded(:SCORCHEDEARTH, function_code: "KERD30")

@@ -30,18 +30,6 @@ module KIFER
 
     module_function
 
-    def with_allies(user)
-      ret = [user]
-      user.eachAlly { |b| ret << b }
-      return ret
-    end
-
-    def stealth_rock(battle, side, user)
-      return if side.effects[PBEffects::StealthRock]
-      side.effects[PBEffects::StealthRock] = true
-      battle.pbDisplay(_INTL("Pointed stones float in the air around {1}!", user.pbOpposingTeam(true)))
-    end
-
     def curse(battle, target)
       return if target.fainted? || target.effects[PBEffects::Curse]
       target.effects[PBEffects::Curse] = true
@@ -71,20 +59,11 @@ class PokeBattle_Move_KERD40 < PokeBattle_Move   # Shed Tail
   end
 
   def pbEndOfMoveUsageEffect(user, targets, numHits, switchedBattlers)
-    return if user.fainted? || !@battle.pbCanChooseNonActive?(user.index)
     sub = [user.totalhp / 4, 1].max
-    @battle.pbDisplay(_INTL("{1} went back to {2}!", user.pbThis, @battle.pbGetOwnerName(user.index)))
-    @battle.pbPursuit(user.index)
-    return if user.fainted?
-    newPkmn = @battle.pbGetReplacementPokemonIndex(user.index)   # Owner chooses
-    return if newPkmn < 0
-    @battle.pbRecallAndReplace(user.index, newPkmn)
-    @battle.pbClearChoice(user.index)   # Replacement Pokémon does nothing this round
-    @battle.moldBreaker = false
-    switchedBattlers.push(user.index)
-    user.effects[PBEffects::Substitute] = sub
-    @battle.pbDisplay(_INTL("{1} is behind the decoy!", user.pbThis))
-    user.pbEffectsOnSwitchIn(true)
+    KIFER::Fx.switch_out(@battle, user, switchedBattlers) do
+      user.effects[PBEffects::Substitute] = sub
+      @battle.pbDisplay(_INTL("{1} is behind the decoy!", user.pbThis))
+    end
   end
 end
 
@@ -120,13 +99,13 @@ class PokeBattle_Move_KERD43 < PokeBattle_Move   # Jungle Healing
   end
 
   def pbMoveFailed?(user, targets)
-    return false if KIFER::NewMoveFx5.with_allies(user).any? { |b| kifer_needs?(b) }
+    return false if KIFER::Fx.with_allies(user).any? { |b| kifer_needs?(b) }
     @battle.pbDisplay(_INTL("But it failed!"))
     return true
   end
 
   def pbEffectGeneral(user)
-    KIFER::NewMoveFx5.with_allies(user).each do |b|
+    KIFER::Fx.with_allies(user).each do |b|
       if b.canHeal?
         b.pbRecoverHP((b.totalhp / 4.0).round)
         @battle.pbDisplay(_INTL("{1}'s HP was restored.", b.pbThis))
@@ -145,7 +124,7 @@ class PokeBattle_Move_KERD44 < PokeBattle_Move   # Diamond Blade
   def pbEffectAgainstTarget(user, target)   # its other 10%: Stealth Rock
     return if target.damageState.unaffected || target.damageState.substitute
     return if @battle.pbRandom(100) >= 10
-    KIFER::NewMoveFx5.stealth_rock(@battle, target.pbOwnSide, user)
+    KIFER::Fx.stealth_rock(@battle, target.pbOwnSide, user)
   end
 end
 
@@ -159,7 +138,7 @@ end
 class PokeBattle_Move_KERD46 < PokeBattle_Move   # Jagged Punch
   def pbAdditionalEffect(user, target)
     return if target.fainted?
-    KIFER::NewMoveFx5.stealth_rock(@battle, target.pbOwnSide, user)
+    KIFER::Fx.stealth_rock(@battle, target.pbOwnSide, user)
   end
 end
 
@@ -206,13 +185,13 @@ end
 
 class PokeBattle_Move_KERD51 < PokeBattle_Move   # Shelter
   def pbMoveFailed?(user, targets)
-    return false if KIFER::NewMoveFx5.with_allies(user).any? { |b| b.pbCanRaiseStatStage?(:DEFENSE, user, self) }
+    return false if KIFER::Fx.with_allies(user).any? { |b| b.pbCanRaiseStatStage?(:DEFENSE, user, self) }
     @battle.pbDisplay(_INTL("But it failed!"))
     return true
   end
 
   def pbEffectGeneral(user)
-    KIFER::NewMoveFx5.with_allies(user).each do |b|
+    KIFER::Fx.with_allies(user).each do |b|
       b.pbRaiseStatStage(:DEFENSE, 2, user) if b.pbCanRaiseStatStage?(:DEFENSE, user, self)
     end
   end
@@ -241,26 +220,7 @@ class PokeBattle_Battler
   end
 end
 
-class PokeBattle_AI
-  alias kifer_nmf5_pbGetMoveScoreFunctionCode pbGetMoveScoreFunctionCode unless method_defined?(:kifer_nmf5_pbGetMoveScoreFunctionCode)
-  def pbGetMoveScoreFunctionCode(score, move, user, target, skill = 100)
-    f = move && move.function
-    as = KIFER::NewMoveFx5::AI_AS[f]
-    return kifer_nmf5_pbGetMoveScoreFunctionCode(score, move, user, target, skill) if !as
-    move.instance_variable_set(:@function, as)   # scored as the PIF move it works like
-    begin
-      return kifer_nmf5_pbGetMoveScoreFunctionCode(score, move, user, target, skill)
-    ensure
-      move.instance_variable_set(:@function, f)
-    end
-  end
-end
-
-KIFER::NewMoveFx5::AI_AS.each_key do |c|
-  k = Object.const_get("PokeBattle_Move_#{c}")
-  KIFER::TerrainEnrage.wrap_move_class(k) if defined?(KIFER::TerrainEnrage) && KIFER::TerrainEnrage.respond_to?(:wrap_move_class)
-end
-KIFER::Statuses.hook_heal_moves if defined?(KIFER::Statuses) && KIFER::Statuses.respond_to?(:hook_heal_moves)
+KIFER::AIAs.add(KIFER::NewMoveFx5::AI_AS)   # AI scoring and Enrage wrap (069)
 
 KIFER::Moves.coded(:SHEDTAIL, function_code: "KERD40")
 KIFER::Moves.coded(:DOUBLESHOCK, function_code: "KERD41")

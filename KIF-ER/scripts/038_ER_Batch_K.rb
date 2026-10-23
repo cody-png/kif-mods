@@ -58,7 +58,7 @@
 #
 # Not coded yet:
 #   Hollow Ice Zone   – needs the Ice Statue status, which the mod doesn't have
-#   (Polarity: 042)
+# Coded elsewhere: Polarity (042)
 #===============================================================================
 KIFER.er_code(:GOODASGOLD, :HARDENEDSHEATH, :HASTEMAKESWASTE, :HUNGRYMAWS, :HUNTERSHORN,
               :HYDRA, :HYDROCIRCUIT, :IMMOVABLEOBJECT, :INFERNALRAGE, :INTREPIDSWORD,

@@ -153,11 +153,93 @@ class PokeBattle_Move_KERD17 < PokeBattle_Move   # Upper Hand
   end
 end
 
+#-------------------------------------------------------------------------------
+# Effects several of the new move classes (070-075) share
+#-------------------------------------------------------------------------------
+module KIFER
+  module Fx
+    module_function
+
+    # the user and its allies on the field
+    def with_allies(user)
+      ret = [user]
+      user.eachAlly { |b| ret << b }
+      return ret
+    end
+
+    # The user switches out (Safe Passage, Shed Tail, Chilly Reception). The
+    # block runs once the new Pokemon is in, before its entry effects.
+    def switch_out(battle, user, switchedBattlers)
+      return false if user.fainted? || !battle.pbCanChooseNonActive?(user.index)
+      battle.pbDisplay(_INTL("{1} went back to {2}!", user.pbThis, battle.pbGetOwnerName(user.index)))
+      battle.pbPursuit(user.index)
+      return false if user.fainted?
+      newPkmn = battle.pbGetReplacementPokemonIndex(user.index)   # Owner chooses
+      return false if newPkmn < 0
+      battle.pbRecallAndReplace(user.index, newPkmn)
+      battle.pbClearChoice(user.index)   # Replacement Pokémon does nothing this round
+      battle.moldBreaker = false
+      switchedBattlers.push(user.index)
+      yield if block_given?
+      user.pbEffectsOnSwitchIn(true)
+      return true
+    end
+
+    # The user eats its held berry and gets its effect (Berry Smash, Stuff Cheeks)
+    def eat_berry(battle, user, msg = nil)
+      item = user.item
+      battle.pbDisplay(msg || _INTL("{1} ate its {2}!", user.pbThis, user.itemName))
+      user.pbConsumeItem(true, false)
+      user.pbHeldItemTriggerCheck(item, false)
+      user.pbSymbiosis if !user.item
+    end
+
+    def leech_seed(battle, user, target)
+      return if target.fainted? || target.effects[PBEffects::LeechSeed] >= 0 || target.pbHasType?(:GRASS)
+      target.effects[PBEffects::LeechSeed] = user.index
+      battle.pbDisplay(_INTL("{1} was seeded!", target.pbThis))
+    end
+
+    def stealth_rock(battle, side, user)
+      return if side.effects[PBEffects::StealthRock]
+      side.effects[PBEffects::StealthRock] = true
+      battle.pbDisplay(_INTL("Pointed stones float in the air around {1}!", user.pbOpposingTeam(true)))
+    end
+
+    # Reflect / Light Screen on the user's side (Light Clay: 8 turns)
+    def screen(battle, user, effect, name)
+      side = user.pbOwnSide
+      return if side.effects[effect] > 0
+      side.effects[effect] = user.hasActiveItem?(:LIGHTCLAY) ? 8 : 5
+      battle.pbDisplay(_INTL("{1} raised {2}'s {3}!", name, user.pbTeam(true),
+                             effect == PBEffects::Reflect ? _INTL("Defense") : _INTL("Special Defense")))
+    end
+  end
+end
+
+#-------------------------------------------------------------------------------
+# The new move classes (this file and 070-075): the battle AI scores each as
+# the PIF move it works like (its code is lent for the call and put back), and
+# Enrage (033) wraps their target methods. Each file adds its table once.
+#-------------------------------------------------------------------------------
+module KIFER
+  module AIAs
+    TABLE = {}   # new code => PIF code
+
+    def self.add(table)
+      TABLE.merge!(table)
+      table.each_key do |c|
+        KIFER::TerrainEnrage.wrap_move_class(Object.const_get("PokeBattle_Move_#{c}")) if defined?(KIFER::TerrainEnrage)
+      end
+    end
+  end
+end
+
 class PokeBattle_AI
   alias kifer_nmf2_pbGetMoveScoreFunctionCode pbGetMoveScoreFunctionCode unless method_defined?(:kifer_nmf2_pbGetMoveScoreFunctionCode)
   def pbGetMoveScoreFunctionCode(score, move, user, target, skill = 100)
     f = move && move.function
-    as = KIFER::NewMoveFx2::AI_AS[f]
+    as = KIFER::AIAs::TABLE[f]
     return kifer_nmf2_pbGetMoveScoreFunctionCode(score, move, user, target, skill) if !as
     move.instance_variable_set(:@function, as)   # scored as the PIF move it works like
     begin
@@ -168,11 +250,7 @@ class PokeBattle_AI
   end
 end
 
-KIFER::NewMoveFx2::AI_AS.each_key do |c|
-  k = Object.const_get("PokeBattle_Move_#{c}")
-  KIFER::TerrainEnrage.wrap_move_class(k) if defined?(KIFER::TerrainEnrage) && KIFER::TerrainEnrage.respond_to?(:wrap_move_class)
-end
-KIFER::Statuses.hook_heal_moves if defined?(KIFER::Statuses) && KIFER::Statuses.respond_to?(:hook_heal_moves)
+KIFER::AIAs.add(KIFER::NewMoveFx2::AI_AS)
 
 KIFER::Moves.coded(:PSYCHICNOISE, function_code: "KERD08")
 KIFER::Moves.coded(:WAVECRASH, function_code: "KERD09", chance: 10)   # ER text: 10% drench (the ROM data says 0)

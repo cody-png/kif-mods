@@ -26,12 +26,6 @@ module KIFER
 
     module_function
 
-    def with_allies(user)
-      ret = [user]
-      user.eachAlly { |b| ret << b }
-      return ret
-    end
-
     def caltrops?(side)
       return side.instance_variable_get(:@kifer_nm3_caltrops) ? true : false
     end
@@ -48,13 +42,13 @@ end
 
 class PokeBattle_Move_KERD18 < PokeBattle_Move   # Dragon Cheer
   def pbMoveFailed?(user, targets)
-    return false if KIFER::NewMoveFx3.with_allies(user).any? { |b| b.effects[PBEffects::FocusEnergy] == 0 }
+    return false if KIFER::Fx.with_allies(user).any? { |b| b.effects[PBEffects::FocusEnergy] == 0 }
     @battle.pbDisplay(_INTL("But it failed!"))
     return true
   end
 
   def pbEffectGeneral(user)
-    KIFER::NewMoveFx3.with_allies(user).each do |b|
+    KIFER::Fx.with_allies(user).each do |b|
       next if b.effects[PBEffects::FocusEnergy] > 0
       b.effects[PBEffects::FocusEnergy] = b.pbHasType?(:DRAGON) ? 2 : 1
       @battle.pbDisplay(_INTL("{1} is getting pumped!", b.pbThis))
@@ -66,13 +60,13 @@ class PokeBattle_Move_KERD19 < PokeBattle_Move   # Life Dew
   def healingMove?; return true; end
 
   def pbMoveFailed?(user, targets)
-    return false if KIFER::NewMoveFx3.with_allies(user).any? { |b| b.canHeal? }
+    return false if KIFER::Fx.with_allies(user).any? { |b| b.canHeal? }
     @battle.pbDisplay(_INTL("But it failed!"))
     return true
   end
 
   def pbEffectGeneral(user)
-    KIFER::NewMoveFx3.with_allies(user).each do |b|
+    KIFER::Fx.with_allies(user).each do |b|
       next if !b.canHeal?
       b.pbRecoverHP((b.totalhp / 4.0).round)
       @battle.pbDisplay(_INTL("{1}'s HP was restored.", b.pbThis))
@@ -212,26 +206,7 @@ class PokeBattle_Battle
   end
 end
 
-class PokeBattle_AI
-  alias kifer_nmf3_pbGetMoveScoreFunctionCode pbGetMoveScoreFunctionCode unless method_defined?(:kifer_nmf3_pbGetMoveScoreFunctionCode)
-  def pbGetMoveScoreFunctionCode(score, move, user, target, skill = 100)
-    f = move && move.function
-    as = KIFER::NewMoveFx3::AI_AS[f]
-    return kifer_nmf3_pbGetMoveScoreFunctionCode(score, move, user, target, skill) if !as
-    move.instance_variable_set(:@function, as)   # scored as the PIF move it works like
-    begin
-      return kifer_nmf3_pbGetMoveScoreFunctionCode(score, move, user, target, skill)
-    ensure
-      move.instance_variable_set(:@function, f)
-    end
-  end
-end
-
-KIFER::NewMoveFx3::AI_AS.each_key do |c|
-  k = Object.const_get("PokeBattle_Move_#{c}")
-  KIFER::TerrainEnrage.wrap_move_class(k) if defined?(KIFER::TerrainEnrage) && KIFER::TerrainEnrage.respond_to?(:wrap_move_class)
-end
-KIFER::Statuses.hook_heal_moves if defined?(KIFER::Statuses) && KIFER::Statuses.respond_to?(:hook_heal_moves)
+KIFER::AIAs.add(KIFER::NewMoveFx3::AI_AS)   # AI scoring and Enrage wrap (069)
 
 KIFER::Moves.coded(:DRAGONCHEER, function_code: "KERD18")
 KIFER::Moves.coded(:LIFEDEW, function_code: "KERD19")

@@ -364,10 +364,6 @@ class PokeBattle_Battler
     @kifer_b_mimic_saved = nil
   end
 
-  # Curlipede's old flag name, now Coil Up's (022)
-  def kifer_b_coiled; kifer_c[:coiled]; end
-  def kifer_b_coiled=(v); kifer_c[:coiled] = v; end
-
   #-----------------------------------------------------------------------------
   # Ice Dew – draws in Ice moves (after Follow Me / Spotlight, like Storm Drain)
   #-----------------------------------------------------------------------------

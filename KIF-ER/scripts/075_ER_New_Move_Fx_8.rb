@@ -45,12 +45,6 @@ module KIFER
 
     module_function
 
-    def with_allies(user)
-      ret = [user]
-      user.eachAlly { |b| ret << b }
-      return ret
-    end
-
     def court_change(battle)
       a, b = battle.sides[0], battle.sides[1]
       COURT.each do |name|
@@ -142,7 +136,7 @@ end
 class PokeBattle_Move_KERE03 < PokeBattle_Move   # Doodle
   def pbFailsAgainstTarget?(user, target)
     if !target.ability || target.ungainableAbility? ||
-       KIFER::NewMoveFx8.with_allies(user).all? { |b| b.unstoppableAbility? }
+       KIFER::Fx.with_allies(user).all? { |b| b.unstoppableAbility? }
       @battle.pbDisplay(_INTL("But it failed!"))
       return true
     end
@@ -150,7 +144,7 @@ class PokeBattle_Move_KERE03 < PokeBattle_Move   # Doodle
   end
 
   def pbEffectAgainstTarget(user, target)
-    KIFER::NewMoveFx8.with_allies(user).each do |b|
+    KIFER::Fx.with_allies(user).each do |b|
       next if b.unstoppableAbility?
       b.ability = target.ability
       b.instance_variable_set(:@innate_ids, Array(target.innate_ids).dup)
@@ -184,8 +178,6 @@ end
 class PokeBattle_Move_KERE07 < PokeBattle_Move   # Sparkly Swirl
   def pbEffectAfterAllHits(user, target)
     return if target.damageState.unaffected
-    return if @battle.instance_variable_get(:@kifer_nm8_swirl) == @battle.turnCount   # once per use
-    @battle.instance_variable_set(:@kifer_nm8_swirl, @battle.turnCount)
     @battle.eachSameSideBattler(user) { |b| b.pbCureStatus(false) if b.status != :NONE }
     @battle.pbParty(user.index).each { |p| p.heal_status if p && !p.egg? && p.status != :NONE }
     @battle.pbDisplay(_INTL("A bell chimed!"))
@@ -246,11 +238,15 @@ class PokeBattle_Move_KERE13 < PokeBattle_Move   # Mirage Slam
 end
 
 class PokeBattle_Move_KERE14 < PokeBattle_Move   # Make It Rain
+  def pbOnStartUse(user, targets)
+    @kifer_once = false   # the Sp. Atk drop and the message: once per use, not per target
+  end
+
   def pbEffectAfterAllHits(user, target)
     return if target.damageState.unaffected
     @battle.field.effects[PBEffects::PayDay] += 5 * user.level if user.pbOwnedByPlayer?
-    return if user.fainted? || @battle.instance_variable_get(:@kifer_nm8_rain) == @battle.turnCount   # once per use
-    @battle.instance_variable_set(:@kifer_nm8_rain, @battle.turnCount)
+    return if user.fainted? || @kifer_once
+    @kifer_once = true
     @battle.pbDisplay(_INTL("Coins were scattered everywhere!")) if user.pbOwnedByPlayer?
     user.pbLowerStatStage(:SPECIAL_ATTACK, 1, user) if user.pbCanLowerStatStage?(:SPECIAL_ATTACK, user, self)
   end
@@ -320,25 +316,7 @@ class PokeBattle_Battle
   end
 end
 
-class PokeBattle_AI
-  alias kifer_nmf8_pbGetMoveScoreFunctionCode pbGetMoveScoreFunctionCode unless method_defined?(:kifer_nmf8_pbGetMoveScoreFunctionCode)
-  def pbGetMoveScoreFunctionCode(score, move, user, target, skill = 100)
-    f = move && move.function
-    as = KIFER::NewMoveFx8::AI_AS[f]
-    return kifer_nmf8_pbGetMoveScoreFunctionCode(score, move, user, target, skill) if !as
-    move.instance_variable_set(:@function, as)   # scored as the PIF move it works like
-    begin
-      return kifer_nmf8_pbGetMoveScoreFunctionCode(score, move, user, target, skill)
-    ensure
-      move.instance_variable_set(:@function, f)
-    end
-  end
-end
-
-KIFER::NewMoveFx8::AI_AS.each_key do |c|
-  k = Object.const_get("PokeBattle_Move_#{c}")
-  KIFER::TerrainEnrage.wrap_move_class(k) if defined?(KIFER::TerrainEnrage) && KIFER::TerrainEnrage.respond_to?(:wrap_move_class)
-end
+KIFER::AIAs.add(KIFER::NewMoveFx8::AI_AS)   # AI scoring and Enrage wrap (069)
 
 KIFER::Moves.coded(:INVERSEROOM, function_code: "KERE01")
 KIFER::Moves.coded(:REVIVALBLESSING, function_code: "KERE02")

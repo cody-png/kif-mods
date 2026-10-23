@@ -115,7 +115,20 @@ class PokeBattle_Move
   alias kifer_mrd_pbFlinchChance pbFlinchChance unless method_defined?(:kifer_mrd_pbFlinchChance)
   def pbFlinchChance(user, target)
     ret = kifer_mrd_pbFlinchChance(user, target)
-    return [ret, KIFER::MegaReadings.cryostasis_chance(self, user, target)].max
+    c = KIFER::MegaReadings.cryostasis_chance(self, user, target)
+    return ret if c <= ret || kifer_mrd_no_flinch?(user, target)
+    return c
+  end
+
+  # The flinch blocks the earlier pbFlinchChance hooks apply (their 0 must not
+  # become Cryostasis's 10%): Desert Cloak / Familia Bond (029), Dual Wield's
+  # later hits (025), Multi-Headed / Hyper Aggressive / Raging Boxer (024),
+  # Bad Luck (021)
+  def kifer_mrd_no_flinch?(user, target)
+    return true if KIFER::BatchJ.cloak(user, target) || (respond_to?(:kifer_j_familia_2nd?, true) && kifer_j_familia_2nd?(user))
+    return true if @kifer_f_dual && user.instance_variable_get(:@kifer_f_hit).to_i > 0
+    return true if KIFER::BatchE.no_flinch_hit?(user)
+    return KIFER::BatchB.bad_luck_vs?(user, target)
   end
 
   # Polarity: Attack / Sp. Atk for the user's side, Defense / Sp. Def for the

@@ -45,9 +45,9 @@
 #                     Stone Edge, X-Scissor and the ER moves Aqua Cutter,
 #                     Berserker Horn, Black Magic, Devious Shot, Dragon Jab:
 #                     their effect chance makes the target bleed (031; needs
-#                     New features > Bleeding)
+#                     New battle effects)
 #   Drench hits     – Hydro Pump (30%), Water Gun (10%): the target gets
-#                     drenched (031; needs New features > Drench)
+#                     drenched (031; needs New battle effects)
 #   Battle AI (both): each new code is scored as the PIF code it works like;
 #     Kinesis on a foe with nothing to lose scores 0. Damage estimate:
 #     Acrobatics x1.5, Cross Poison x2, Double Slap's average hits, Egg Bomb
@@ -129,9 +129,14 @@ module KIFER
     end
 
     # Moves Metronome & co. can't call: the codes that work like listed ones
+    # Later move classes (067-075) that work like a PIF code those lists name:
+    # two-turn moves (Meteor Beam, Electro Shot) and Protect variants
+    BLACKLIST_LIKE = { "KERD10" => "0C8", "KERD31" => "0C4", "KERD72" => "0AA", "KERD73" => "0AA",
+                       "KERE08" => "0AA" }
+
     def extend_blacklist(list)
       return if !list.is_a?(Array)
-      BASE.each { |code, base| list << code if list.include?(base) && !list.include?(code) }
+      BASE.merge(BLACKLIST_LIKE).each { |code, base| list << code if list.include?(base) && !list.include?(code) }
     end
 
     # Battle AI: base power estimate for the codes whose power rule is new
@@ -488,7 +493,6 @@ end
 KIFER::MoveFxAttacks::CODE_OF.each_key do |k|
   KIFER::TerrainEnrage.wrap_move_class(k) if defined?(KIFER::TerrainEnrage) && KIFER::TerrainEnrage.respond_to?(:wrap_move_class)
 end
-KIFER::Statuses.hook_heal_moves if defined?(KIFER::Statuses) && KIFER::Statuses.respond_to?(:hook_heal_moves)
 
 KIFER::Moves.coded(:ACROBATICS, function_code: "KERB01")
 KIFER::Moves.coded(:ASTONISH, function_code: "KERB02")

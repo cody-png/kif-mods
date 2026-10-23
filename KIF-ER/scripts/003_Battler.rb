@@ -80,6 +80,14 @@ class PokeBattle_Battler
     @kifer_inline = nil
   end
 
+  # Asked thousands of times a turn (hasActiveAbility?, abilityActive?): the
+  # stored id is a Symbol, so a hash lookup gives what try_get's validation does
+  alias kifer_ability_lookup ability unless method_defined?(:kifer_ability_lookup)
+  def ability
+    return GameData::Ability::DATA[@ability_id] if @ability_id.is_a?(Symbol)
+    return kifer_ability_lookup
+  end
+
   # PIF's hasWorkingAbility (used by DemICE's AI) is a copy of the original
   # hasActiveAbility?, made before any wrapper; send it through the current one
   def hasWorkingAbility(*args)
@@ -146,6 +154,11 @@ module KIFER
 
   # The innate that matches check_ability, or nil
   def self.innate_match(battler, check_ability, ignore_fainted)
+    # most asks miss: the raw list holds every innate the active ones come from
+    if check_ability.is_a?(Symbol)
+      raw = battler.innate_ids
+      return nil if !raw || !raw.include?(check_ability)
+    end
     inn = battler.active_innates
     return nil if inn.empty?
     return nil if !battler.abilityActive?(ignore_fainted)

@@ -185,7 +185,8 @@ module KIFER
       used = cheats(battle)[target.pokemon.object_id] || 0
       return if used >= 2 * n
       cheats(battle)[target.pokemon.object_id] = used + 1
-      ds.calcDamage = 0
+      ds.hpLost = 0   # ER: "Moves still connect and secondary effects apply, but damage becomes 0"
+      [:endured, :sturdy, :focusSash, :focusBand].each { |f| ds.send("#{f}=", false) if ds.respond_to?("#{f}=") }   # nothing to survive
       battle.pbShowAbilitySplash(target, false, true, KIFER.ability_name(:CHEATINGDEATH))
       battle.pbDisplay(_INTL("{1} took no damage!", target.pbThis))
       battle.pbHideAbilitySplash(target)
@@ -383,8 +384,8 @@ class PokeBattle_Move
   #-----------------------------------------------------------------------------
   alias kifer_i_pbReduceDamage pbReduceDamage unless method_defined?(:kifer_i_pbReduceDamage)
   def pbReduceDamage(user, target)
-    KIFER::BatchI.cheat_death(self, user, target)
     kifer_i_pbReduceDamage(user, target)
+    KIFER::BatchI.cheat_death(self, user, target)   # after: the hit still counts as dealing damage (effects apply)
   end
 
   #-----------------------------------------------------------------------------

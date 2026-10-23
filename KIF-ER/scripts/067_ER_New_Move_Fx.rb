@@ -1,9 +1,9 @@
 #===============================================================================
 # KIF: Elite Redux – effects for Elite Redux moves PIF doesn't have (moves
 # step 3, first batch). The moves are in the game through 064 once coded here.
-#   Blood Shot     – makes the target bleed (fails with New features > Bleeding Off)
+#   Blood Shot     – makes the target bleed (fails with New battle effects Off)
 #   Flash Freeze   – frostbites the target; never misses from an Ice-type user
-#                    (fails with New features > Frostbite Off)
+#                    (fails with New battle effects Off)
 #   Body Press     – uses the user's Defense (and its stages) as its attack
 #   Poltergeist    – fails if the target holds no item
 #   Lash Out       – +20 power for each of the user's lowered stat stages; its
@@ -166,7 +166,6 @@ KIFER::NewMoveFx::CODES.each do |c|
   k = Object.const_get("PokeBattle_Move_#{c}")
   KIFER::TerrainEnrage.wrap_move_class(k) if defined?(KIFER::TerrainEnrage) && KIFER::TerrainEnrage.respond_to?(:wrap_move_class)
 end
-KIFER::Statuses.hook_heal_moves if defined?(KIFER::Statuses) && KIFER::Statuses.respond_to?(:hook_heal_moves)
 
 KIFER::Moves.coded(:BLOODSHOT, function_code: "KERD01")
 KIFER::Moves.coded(:FLASHFREEZE, function_code: "KERD02")

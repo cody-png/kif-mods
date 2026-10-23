@@ -319,7 +319,7 @@ module KIFER
       return false if w.nil? || w == :None || PRIMAL.include?(w)
       battle.field.weather = :None
       battle.field.weatherDuration = 0
-      battle.eachBattler { |b| b.pbCheckFormOnWeatherChange rescue nil }
+      battle.eachBattler { |b| b.pbCheckFormOnWeatherChange }
       return true
     end
 
@@ -998,16 +998,14 @@ unless defined?(KIFER::ERVersions::DONE)
   KIFER::ERVersions.wrap(BattleHandlers::StatusImmunityAbility, :LEAFGUARD)
 
   KIFER::ERVersions.wrap(BattleHandlers::EORHealingAbility, :HEALER) do |ability, battler, battle|
-    next unless battle.pbRandom(100) < 30
-    ally = nil
-    battler.eachAlly { |b| ally = b if !ally && b.status != :NONE }
-    if ally
+    # ER: "2 separate checks for each Pokemon": 30% for itself and for each ally
+    battler.eachAlly do |b|
+      next if b.status == :NONE || battle.pbRandom(100) >= 30
       KIFER::ERVersions.splash(battler, ability)
-      ally.pbCureStatus(true)
+      b.pbCureStatus(true)
       KIFER::ERVersions.hide(battler)
-    elsif battler.status != :NONE
-      KIFER::ERVersions.cure(battler, ability)
     end
+    KIFER::ERVersions.cure(battler, ability) if battler.status != :NONE && battle.pbRandom(100) < 30
   end
 
   KIFER::ERVersions.wrap(BattleHandlers::EOREffectAbility, :BADDREAMS) do |ability, battler, battle|
@@ -1407,7 +1405,9 @@ unless defined?(KIFER::ERVersions::DONE)
       return kifer_v_pbTryUseMove(choice, move, *args) if !KIFER::ERVersions.on? || !hasActiveAbility?(:TRUANT)
       loaf = @effects[PBEffects::Truant] ? true : false
       ret = kifer_v_pbTryUseMove(choice, move, *args)
-      if loaf && !@effects[PBEffects::Truant]
+      flipped = (@effects[PBEffects::Truant] ? true : false) != loaf
+      return ret if !flipped   # PIF's toggle didn't run (asleep, frozen, recharging...): no turn spent
+      if loaf
         @effects[PBEffects::Truant] = false    # loafed: free next turn
       else
         @effects[PBEffects::Truant] = (move && !move.statusMove?) ? true : false

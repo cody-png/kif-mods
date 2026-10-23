@@ -542,7 +542,8 @@ class PokeBattle_Move
   end
 end
 
-KIFER::Statuses.hook_heal_moves
+# hook_heal_moves runs once from main.rb, after every script (later files add
+# healing move classes)
 
 # Facade: x2 while frostbitten too
 class PokeBattle_Move_07E

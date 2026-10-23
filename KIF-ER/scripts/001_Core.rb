@@ -30,9 +30,10 @@ module KIFER
   # would cause them don't.
   #   KIFER.feature(:fog, "Fog", "...")  -> records the mechanic
   #   KIFER.feature_on?(:fog)            -> true/false
-  FEATURES = {}
+  FEATURES = {}   # id => [name, desc] of each mechanic (tests list them)
   SETTING_FEATURES = :kifer_new_features
 
+  # One setting covers every mechanic; kept for callers that name one
   def self.feature_key(_id = nil)
     return SETTING_FEATURES
   end

@@ -85,6 +85,8 @@ module KIFER
     alias kifer_single_pokemon_innates pokemon_innates unless method_defined?(:kifer_single_pokemon_innates)
     def pokemon_innates(pkmn)
       if dual?(pkmn)
+        kit = kit_for(pkmn)   # another mod's kit (Megas: a Mega half) wins here too
+        return kit[:innates].dup if kit && kit[:innates].is_a?(Array)
         return fusion_pool(pkmn.get_head_species.id, pkmn.get_body_species.id)
       end
       return kifer_single_pokemon_innates(pkmn)

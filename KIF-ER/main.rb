@@ -15,6 +15,7 @@ end
 
 load File.join(KIFER::ROOT, "data", "er_data.rb")
 load File.join(KIFER::ROOT, "data", "er_moves.rb")
+load File.join(KIFER::ROOT, "data", "er_stats.rb")
 # One broken file is logged and skipped; the rest of the mod still loads
 Dir[File.join(KIFER::ROOT, "scripts", "*.rb")].sort.each do |f|
   begin
@@ -24,4 +25,7 @@ Dir[File.join(KIFER::ROOT, "scripts", "*.rb")].sort.each do |f|
     KIFER.log("#{File.basename(f)} not loaded: #{e.class}: #{e.message.lines.first.to_s.strip}") if KIFER.respond_to?(:log)
   end
 end
+# Healing moves don't heal a bleeding Pokemon (031): every healing move class,
+# including the ones later scripts define
+KIFER::Statuses.hook_heal_moves if defined?(KIFER::Statuses)
 KIFER.log("KIF: Elite Redux #{KIFER::VERSION} loaded (#{KIFER::SPECIES_DATA.length} species)")

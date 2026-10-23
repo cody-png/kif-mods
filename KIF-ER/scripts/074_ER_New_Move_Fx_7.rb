@@ -49,39 +49,9 @@ module KIFER
       return battle.instance_variable_get(:@kifer_nm7_hits) || battle.instance_variable_set(:@kifer_nm7_hits, {})
     end
 
-    def leech_seed(battle, user, target)
-      return if target.fainted? || target.effects[PBEffects::LeechSeed] >= 0 || target.pbHasType?(:GRASS)
-      target.effects[PBEffects::LeechSeed] = user.index
-      battle.pbDisplay(_INTL("{1} was seeded!", target.pbThis))
-    end
-
     def start_weather(battle, user, weather)
       return if battle.field.weather == weather || [:HeavyRain, :HarshSun, :StrongWinds].include?(battle.field.weather)
       battle.pbStartWeather(user, weather, true, false)
-    end
-
-    def screen(battle, user, effect, name)
-      side = user.pbOwnSide
-      return if side.effects[effect] > 0
-      side.effects[effect] = user.hasActiveItem?(:LIGHTCLAY) ? 8 : 5
-      battle.pbDisplay(_INTL("{1} raised {2}'s {3}!", name, user.pbTeam(true),
-                             effect == PBEffects::Reflect ? _INTL("Defense") : _INTL("Special Defense")))
-    end
-
-    # user switches out (Safe Passage's way, 071)
-    def switch_out(battle, user, switchedBattlers)
-      return false if user.fainted? || !battle.pbCanChooseNonActive?(user.index)
-      battle.pbDisplay(_INTL("{1} went back to {2}!", user.pbThis, battle.pbGetOwnerName(user.index)))
-      battle.pbPursuit(user.index)
-      return false if user.fainted?
-      newPkmn = battle.pbGetReplacementPokemonIndex(user.index)   # Owner chooses
-      return false if newPkmn < 0
-      battle.pbRecallAndReplace(user.index, newPkmn)
-      battle.pbClearChoice(user.index)   # Replacement Pokémon does nothing this round
-      battle.moldBreaker = false
-      switchedBattlers.push(user.index)
-      user.pbEffectsOnSwitchIn(true)
-      return true
     end
 
     # A Protect variant stopped a contact move this round
@@ -151,7 +121,7 @@ class PokeBattle_Move_KERD76 < PokeBattle_Move   # Chilly Reception
   end
 
   def pbEndOfMoveUsageEffect(user, targets, numHits, switchedBattlers)
-    KIFER::NewMoveFx7.switch_out(@battle, user, switchedBattlers)
+    KIFER::Fx.switch_out(@battle, user, switchedBattlers)
   end
 end
 
@@ -245,12 +215,12 @@ end
 class PokeBattle_Move_KERD85 < PokeBattle_Move   # Sappy Seed (always), Bramble Blast (its chance)
   def pbEffectAgainstTarget(user, target)
     return if @id != :SAPPYSEED || target.damageState.unaffected || target.damageState.substitute
-    KIFER::NewMoveFx7.leech_seed(@battle, user, target)
+    KIFER::Fx.leech_seed(@battle, user, target)
   end
 
   def pbAdditionalEffect(user, target)
     return if @id == :SAPPYSEED || target.damageState.substitute
-    KIFER::NewMoveFx7.leech_seed(@battle, user, target)
+    KIFER::Fx.leech_seed(@battle, user, target)
   end
 end
 
@@ -286,7 +256,7 @@ end
 class PokeBattle_Move_KERD89 < PokeBattle_Move   # Glitzy Glow
   def pbEffectAfterAllHits(user, target)
     return if user.fainted? || target.damageState.unaffected
-    KIFER::NewMoveFx7.screen(@battle, user, PBEffects::LightScreen, _INTL("Light Screen"))
+    KIFER::Fx.screen(@battle, user, PBEffects::LightScreen, _INTL("Light Screen"))
   end
 end
 
@@ -396,25 +366,7 @@ class PokeBattle_Battle
   end
 end
 
-class PokeBattle_AI
-  alias kifer_nmf7_pbGetMoveScoreFunctionCode pbGetMoveScoreFunctionCode unless method_defined?(:kifer_nmf7_pbGetMoveScoreFunctionCode)
-  def pbGetMoveScoreFunctionCode(score, move, user, target, skill = 100)
-    f = move && move.function
-    as = KIFER::NewMoveFx7::AI_AS[f]
-    return kifer_nmf7_pbGetMoveScoreFunctionCode(score, move, user, target, skill) if !as
-    move.instance_variable_set(:@function, as)   # scored as the PIF move it works like
-    begin
-      return kifer_nmf7_pbGetMoveScoreFunctionCode(score, move, user, target, skill)
-    ensure
-      move.instance_variable_set(:@function, f)
-    end
-  end
-end
-
-KIFER::NewMoveFx7::AI_AS.each_key do |c|
-  k = Object.const_get("PokeBattle_Move_#{c}")
-  KIFER::TerrainEnrage.wrap_move_class(k) if defined?(KIFER::TerrainEnrage) && KIFER::TerrainEnrage.respond_to?(:wrap_move_class)
-end
+KIFER::AIAs.add(KIFER::NewMoveFx7::AI_AS)   # AI scoring and Enrage wrap (069)
 
 KIFER::Moves.coded(:BURNINGBULWARK, function_code: "KERD72")
 KIFER::Moves.coded(:OBSTRUCT, function_code: "KERD73")

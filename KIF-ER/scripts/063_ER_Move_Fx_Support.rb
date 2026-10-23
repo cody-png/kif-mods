@@ -313,7 +313,7 @@ class PokeBattle_AI
     return KIFER::AI.demice_on? ? d : score + d
   rescue StandardError => e
     KIFER.log("AI support move score: #{e.class}: #{e.message}")
-    return ret
+    return ret || score   # the inner call may be what raised
   end
 end
 
@@ -330,5 +330,4 @@ KIFER::Moves.coded(:SWALLOW, function_code: "KERC07")
 KIFER::Moves.coded(:AROMATICMIST, function_code: "KERC08", target: :User)
 KIFER::Moves.coded(:AROMATHERAPY, function_code: "KERC09")
 # the new classes get 031's bleeding hook and 033's per-target wraps too
-KIFER::Statuses.hook_heal_moves if defined?(KIFER::Statuses) && KIFER::Statuses.respond_to?(:hook_heal_moves)
 KIFER::TerrainEnrage.wrap_all_moves if defined?(KIFER::TerrainEnrage) && KIFER::TerrainEnrage.respond_to?(:wrap_all_moves)
