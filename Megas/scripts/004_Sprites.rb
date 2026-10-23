@@ -23,8 +23,9 @@ module Megas
     dex = pkmn.id_number
     off = GameData::Species.calculateShinyHueOffset(dex, pkmn.body_shiny, pkmn.head_shiny)
     return off if off.is_a?(Numeric)
-    # never a fusion here (Mega fusions keep the fusion sprite)
-    return GameData::Species.calculateShinyHueOffsetDefaultMethod(dex, dex, dex, pkmn.body_shiny, pkmn.head_shiny).to_i
+    body = pkmn.isFusion? ? getBodyID(dex) : dex   # a Mega fusion's striped sprite
+    head = pkmn.isFusion? ? getHeadID(dex, body) : dex
+    return GameData::Species.calculateShinyHueOffsetDefaultMethod(body, head, dex, pkmn.body_shiny, pkmn.head_shiny).to_i
   end
 
   # KIF's shiny engine when it draws this Pokémon, else PIF's hue
@@ -43,11 +44,13 @@ module GameData
       alias megas_sprite_bitmap_from_pokemon sprite_bitmap_from_pokemon unless method_defined?(:megas_sprite_bitmap_from_pokemon)
       def sprite_bitmap_from_pokemon(pkmn, *args)
         id = pkmn && !pkmn.egg? && Megas.current(pkmn)
-        return Megas.decorate!(megas_sprite_bitmap_from_pokemon(pkmn, *args)) if id.is_a?(Array)   # Mega fusion: badge + aura
+        make_shiny = args[2] != false   # 4th argument (KIF): false = draw it not shiny
+        if id.is_a?(Array)   # Mega fusion: the halves striped, else the fusion sprite + badge + aura
+          return Megas.striped_fusion(pkmn, id, make_shiny) || Megas.decorate!(megas_sprite_bitmap_from_pokemon(pkmn, *args))
+        end
         path = id && Megas.sprite_path(id)
         return megas_sprite_bitmap_from_pokemon(pkmn, *args) if !path
         bmp = AnimatedBitmap.new(path)   # 192px file (ER 64px at 3x, like PIF) drawn as is
-        make_shiny = args[2] != false   # 4th argument (KIF): false = draw it not shiny
         Megas.make_shiny!(bmp, pkmn) if make_shiny && pkmn.shiny?
         return bmp
       end

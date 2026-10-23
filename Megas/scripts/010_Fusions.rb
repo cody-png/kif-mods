@@ -9,8 +9,9 @@
 #   * The fused data is PIF's own FusedSpecies with the Mega half (or halves)
 #     swapped in, so PIF's fusion rules (dominant stats, types) apply.
 #   * The self-fusion boost only for matching Megas (X x X, never X x Y).
-#   * No Mega fusion sprites exist: the normal fusion sprite gets a Mega
-#     badge and an aura (Cody: badge + aura).
+#   * Sprite (Cody, 2026-10-22): both halves' own sprites drawn together,
+#     striped where they overlap, with the Mega badge (striped_fusion). Only
+#     when a half's sprite is missing: the fusion sprite + badge + aura.
 # State: @megas_form = [head Mega id or nil, body Mega id or nil].
 #===============================================================================
 module Megas
@@ -92,12 +93,74 @@ module Megas
     return pick.call(first) || pick.call(second)
   end
 
-  # Mega badge and aura on a fusion's normal sprite (no Mega fusion sprites
-  # exist). Drawn on a private copy, in sprite pixels (the bitmap's own scale).
+  # A Mega fusion's sprite: the two halves' sprites (a Mega half its Mega's,
+  # the other its species' normal one) on one 288 px canvas, centred, feet on
+  # the body's ground line. Where both cover a pixel, sprite-pixel rows (3 game
+  # rows) alternate: even = body, odd = head (Cody: one sprite pixel, so the
+  # stripes stay even when screens draw sprites at 2/3). nil = a half has no
+  # sprite. Shiny: the striped sprite takes the fusion's hue; the badge after.
+  STRIPE = 3 unless defined?(STRIPE)
+  CANVAS = 288 unless defined?(CANVAS)
+
+  def self.striped_fusion(pkmn, ids, make_shiny = true)
+    halves = fusion_halves(pkmn)
+    return nil if halves.length < 2
+    anims = [0, 1].map do |i|
+      next GameData::Species.front_sprite_bitmap(halves[i]) if !ids[i]
+      path = sprite_path(ids[i])
+      path && AnimatedBitmap.new(path)
+    end
+    head, body = anims.map { |a| a && a.bitmap && game_scale(a.bitmap) }
+    out = nil
+    if head && body && head.respond_to?(:raw_data) && body.respond_to?(:raw_data)
+      c = CANVAS
+      bx = (c - body.width) / 2 / STRIPE * STRIPE
+      by = c - body.height   # where the game puts it alone (bottom-aligned)
+      hx = (c - head.width) / 2 / STRIPE * STRIPE
+      hy = ((by + feet(body) - feet(head)) / STRIPE.to_f).round * STRIPE
+      out = Bitmap.new(c, c)
+      out.blt(hx, hy, head, head.rect)
+      out.blt(bx, by, body, body.rect)
+      (STRIPE...c).step(2 * STRIPE) do |y|   # odd rows: the head back on top where it covers
+        ys = [y, hy].max
+        ye = [y + STRIPE, hy + head.height].min
+        out.blt(hx, ys, head, Rect.new(0, ys - hy, head.width, ye - ys)) if ye > ys
+      end
+    end
+    anims.each_with_index do |a, i|
+      next if !a
+      scaled = [head, body][i]
+      scaled.dispose if scaled && !a.bitmap.equal?(scaled)
+      a.dispose
+    end
+    return nil if !out
+    anim = AnimatedBitmap.from_bitmap(out)
+    make_shiny!(anim, pkmn) if make_shiny && pkmn.shiny?
+    return decorate!(anim, false)
+  end
+
+  # A sprite at game scale (PIF's base sprites mix 96 px files and 3x ones)
+  def self.game_scale(bmp)
+    return bmp if bmp.width > 96
+    big = Bitmap.new(bmp.width * 3, bmp.height * 3)
+    big.stretch_blt(big.rect, bmp, bmp.rect)
+    return big
+  end
+
+  # Rows down to the bottom of a sprite's opaque area (its feet)
+  def self.feet(bmp)
+    w = bmp.width
+    px = bmp.raw_data.unpack("N*")
+    (bmp.height - 1).downto(0) { |y| return y + 1 if (y * w...(y + 1) * w).any? { |k| (px[k] & 0xFF) != 0 } }
+    return bmp.height
+  end
+
+  # Mega badge (and aura) on a fusion's sprite. Drawn on a private copy, in
+  # sprite pixels (the bitmap's own scale).
   AURA_INNER = 0x78C8FFFF unless defined?(AURA_INNER)   # light blue
   AURA_OUTER = 0x7846C8FF unless defined?(AURA_OUTER)   # purple
 
-  def self.decorate!(anim)
+  def self.decorate!(anim, aura = true)
     if defined?(KIF::Shiny) && KIF::Shiny.respond_to?(:privatize)
       KIF::Shiny.privatize(anim)
     else
@@ -111,30 +174,32 @@ module Megas
     cw = w / s
     ch = h / s
     px = bmp.raw_data.unpack("N*")
-    solid = Array.new(cw * ch) { |k| (px[(k / cw) * s * w + (k % cw) * s] & 0xFF) != 0 }
-    grow = lambda do |mask|
-      out = mask.dup
-      mask.each_index do |k|
-        next if !mask[k]
-        x = k % cw
-        y = k / cw
-        out[k - 1] = true if x > 0
-        out[k + 1] = true if x < cw - 1
-        out[k - cw] = true if y > 0
-        out[k + cw] = true if y < ch - 1
+    if aura
+      solid = Array.new(cw * ch) { |k| (px[(k / cw) * s * w + (k % cw) * s] & 0xFF) != 0 }
+      grow = lambda do |mask|
+        out = mask.dup
+        mask.each_index do |k|
+          next if !mask[k]
+          x = k % cw
+          y = k / cw
+          out[k - 1] = true if x > 0
+          out[k + 1] = true if x < cw - 1
+          out[k - cw] = true if y > 0
+          out[k + cw] = true if y < ch - 1
+        end
+        out
       end
-      out
-    end
-    ring1 = grow.call(solid)
-    ring2 = grow.call(ring1)
-    paint = lambda do |k, color|
-      x0 = (k % cw) * s
-      y0 = (k / cw) * s
-      s.times { |dy| s.times { |dx| i = (y0 + dy) * w + x0 + dx; px[i] = color if (px[i] & 0xFF) == 0 } }
-    end
-    ring2.each_index do |k|
-      next if solid[k] || !ring2[k]
-      paint.call(k, ring1[k] ? AURA_INNER : AURA_OUTER)
+      ring1 = grow.call(solid)
+      ring2 = grow.call(ring1)
+      paint = lambda do |k, color|
+        x0 = (k % cw) * s
+        y0 = (k / cw) * s
+        s.times { |dy| s.times { |dx| i = (y0 + dy) * w + x0 + dx; px[i] = color if (px[i] & 0xFF) == 0 } }
+      end
+      ring2.each_index do |k|
+        next if solid[k] || !ring2[k]
+        paint.call(k, ring1[k] ? AURA_INNER : AURA_OUTER)
+      end
     end
     badge = (Bitmap.new("Graphics/Pictures/Battle/icon_mega") rescue nil)
     if badge && badge.respond_to?(:raw_data)
