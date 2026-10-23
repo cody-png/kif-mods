@@ -10,6 +10,9 @@ class PokeBattle_Battle
     return false if Megas.permanent? && Megas.available(battler.pokemon, :mega)   # Permanent: already Mega from the start
     return false if wildBattle? && opposes?(idxBattler)
     return false if battler.effects[PBEffects::SkyDrop] >= 0
+    # KIF-ER's Magic Room stops Mega Evolution; this def replaces its wrapper
+    # (Megas loads after it), so ask it here
+    return false if defined?(KIFER::MoveFxField) && KIFER::MoveFxField.respond_to?(:magic_room?) && KIFER::MoveFxField.magic_room?(self)
     side  = battler.idxOwnSide
     owner = pbGetOwnerIndexFromBattlerIndex(idxBattler)
     return @megaEvolution[side][owner] == -1   # -2 once this trainer has Mega Evolved

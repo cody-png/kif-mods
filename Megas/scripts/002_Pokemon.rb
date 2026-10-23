@@ -56,8 +56,9 @@ module Megas
       next if !pk
       want = holders.any? { |h| h.equal?(pk) } ? available(pk, :mega) : nil
       want ||= current(pk) if permanent? && pk.primal? && pk.hp > 0 && current(pk) == available(pk, :primal)
-      next if current(pk) == want
-      pk.makeUnmega if current(pk)
+      form = pk.instance_variable_get(:@megas_form)   # also a stale one (the species changed under it)
+      next if current(pk) == want && (want || !form)
+      pk.makeUnmega if form
       pk.makeMega if want
     end
   end
@@ -74,7 +75,7 @@ module Megas
     return if !st || !st.respond_to?(:boxes) || !st.boxes
     st.boxes.each do |box|
       next if !box || !box.respond_to?(:pokemon) || !box.pokemon
-      box.pokemon.each { |pk| pk.makeUnmega if pk.is_a?(Pokemon) && current(pk) }
+      box.pokemon.each { |pk| pk.makeUnmega if pk.is_a?(Pokemon) && pk.instance_variable_get(:@megas_form) }
     end
   end
 
@@ -85,7 +86,7 @@ module Megas
     return nil if !id   # most Pokémon: nothing else to look at
     swap_picks(pkmn) if !@saving && pkmn.instance_variable_get(:@megas_pick_saved)   # first look after loading
     return nil if pkmn.instance_variable_get(:@megas_base) != pkmn.species
-    list = id.is_a?(Array) ? id.compact : [id]   # a fusion: [head Mega, body Mega], nil for a normal half
+    list = ids(id)   # a fusion: [head Mega, body Mega], nil for a normal half
     return nil if list.empty? || list.any? { |i| !DATA[i] || (DATA[i][:er_only] && !er?) }
     return id
   end

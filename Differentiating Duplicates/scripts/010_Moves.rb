@@ -63,10 +63,11 @@ class PokeBattle_Battler
   alias dd_pbInitEffects pbInitEffects unless method_defined?(:dd_pbInitEffects)
   def pbInitEffects(batonPass)
     webbed = []
-    if @battle && DiffDupes.move_on?(:SPIDERWEB)
+    if @battle
       @battle.eachBattler do |b|
-        next if b.equal?(self)
-        webbed << b if b.dd_web && b.effects[PBEffects::MeanLook] == @index
+        next if b.equal?(self) || b.effects[PBEffects::MeanLook] != @index
+        webbed << b if b.dd_web && DiffDupes.move_on?(:SPIDERWEB)
+        b.dd_block = false   # its Block ends with this Pokemon; a later Anchor Shot trap isn't a Block
       end
     end
     dd_pbInitEffects(batonPass)
@@ -265,7 +266,7 @@ class PokeBattle_Move_0D5
   alias dd_0d5_fails pbFailsAgainstTarget? unless method_defined?(:dd_0d5_fails)
   def pbFailsAgainstTarget?(user, target)
     return dd_0d5_fails(user, target) unless DiffDupes::Moves.ally_mode?(self)
-    if target.hp == target.totalhp
+    if !target.canHeal?   # full HP, or Heal Block (as Heal Pulse)
       @battle.pbDisplay(_INTL("{1}'s HP is full!", target.pbThis))
       return true
     end
@@ -293,7 +294,7 @@ class PokeBattle_Move_0D5
     dd_0d5_effect(user)
     return unless @id == :HEALORDER && DiffDupes.move_on?(:HEALORDER)
     user.eachAlly do |b|
-      next if b.hp == b.totalhp
+      next unless b.canHeal?   # full HP, or Heal Block
       b.pbRecoverHP((b.totalhp / 4.0).round)
       @battle.pbDisplay(_INTL("{1}'s HP was restored.", b.pbThis))
     end
@@ -373,12 +374,21 @@ class PokeBattle_AI
     else
       ret = dd_pbGetMoveScoreFunctionCode(score, move, user, target, skill)
     end
+    return ret if !ret.is_a?(Numeric)
     # Detect: the foe's best attack never misses, so dodging doesn't help
-    if ret.is_a?(Numeric) && move.id == :DETECT && DiffDupes.move_on?(:DETECT) && dd_detect_pierced?(user, skill)
-      demice = defined?(KIF::PowerfulAI) && KIF::PowerfulAI.respond_to?(:on?) && KIF::PowerfulAI.on?
-      ret -= DD_PROTECT_POINTLESS[demice ? :demice : :pif]
+    ret -= dd_pointless if move.id == :DETECT && DiffDupes.move_on?(:DETECT) && dd_detect_pierced?(user, skill)
+    # Soft-Boiled / Milk Drink / Barrier on an ally: both AIs score these by the
+    # user's HP or stats, so a full-HP (or maxed) ally scored as well as the user
+    if DiffDupes::Moves.ally_mode?(move) && target && target.index != user.index && !user.opposes?(target)
+      ret -= dd_pointless if (move.function == "0D5") ? !target.canHeal? : target.statStageAtMax?(:DEFENSE)
     end
     return ret
+  end
+
+  # Each AI's own score change for a move that would do nothing
+  def dd_pointless
+    demice = defined?(KIF::PowerfulAI) && KIF::PowerfulAI.respond_to?(:on?) && KIF::PowerfulAI.on?
+    return DD_PROTECT_POINTLESS[demice ? :demice : :pif]
   end
 
   def dd_detect_pierced?(user, skill)

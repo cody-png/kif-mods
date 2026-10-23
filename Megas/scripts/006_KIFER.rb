@@ -66,30 +66,4 @@ if defined?(::KIFER) && KIFER.respond_to?(:register_kit)
       KIFER.refresh_battler(self) if fullChange && @pokemon && Megas.current(@pokemon)
     end
   end
-elsif defined?(::KIFER)
-  module KIFER
-    class << self
-      alias megas_choice_list choice_list unless method_defined?(:megas_choice_list)
-      def choice_list(pkmn)
-        kit = pkmn.is_a?(Pokemon) && Megas.er_kit(pkmn)
-        return kit ? kit[:choices] : megas_choice_list(pkmn)
-      end
-    end
-  end
-
-  class Pokemon
-    alias megas_innates innates unless method_defined?(:megas_innates)
-    def innates
-      kit = KIFER.enabled? && Megas.er_kit(self)
-      return kit ? kit[:innates] : megas_innates
-    end
-  end
-
-  class PokeBattle_Battler
-    alias megas_pbUpdate pbUpdate unless method_defined?(:megas_pbUpdate)
-    def pbUpdate(fullChange = false)
-      megas_pbUpdate(fullChange)
-      @innate_ids = KIFER.battle_innates(@pokemon) if fullChange && @pokemon && Megas.current(@pokemon)
-    end
-  end
 end

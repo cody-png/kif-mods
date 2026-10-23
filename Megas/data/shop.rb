@@ -5,7 +5,7 @@
 #   7, 8    - after Silph Co, with at least that many badges
 #   :league - after beating the League (PIF switch 12)
 module Megas
-  SHOP_PRICE = 10000 unless defined?(SHOP_PRICE)   # draft
+  SHOP_PRICE = 10000 unless defined?(SHOP_PRICE)
   SHOP = {
     :silph => [   # Kanto species (PIF dex 1-151)
       :VENUSAURITE, :VENUSAURITE_X, :CHARIZARDITE_X, :CHARIZARDITE_Y, :CHARIZARDITE_Z,

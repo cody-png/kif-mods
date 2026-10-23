@@ -26,9 +26,12 @@ module DiffDupes
     def self.white_smoke(bearer, user)
       return if @ws_busy
       return unless user && !user.fainted? && user.index != bearer.index && user.opposes?(bearer)
-      key = [bearer.battle.object_id, bearer.battle.turnCount, user.index, bearer.index]   # per battle: a new battle starts at turn 0 again
-      return if @ws_last == key
-      @ws_last = key
+      round = [bearer.battle.object_id, bearer.battle.turnCount]   # per battle: a new battle starts at turn 0 again
+      @ws_seen = [] if @ws_round != round
+      @ws_round = round
+      pair = [user.index, bearer.index]   # every pair once a round, in any order (doubles)
+      return if @ws_seen.include?(pair)
+      @ws_seen << pair
       @ws_busy = true   # two White Smokes mustn't trigger each other forever
       begin
         user.pbLowerStatStageByAbility(:ACCURACY, 1, bearer, true)

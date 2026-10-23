@@ -155,6 +155,8 @@ end
 # (only for a Mega or Primal that can be used now)
 alias megas_pbFuse pbFuse unless Object.method_defined?(:megas_pbFuse) || Object.private_method_defined?(:megas_pbFuse)
 def pbFuse(pokemon_body, pokemon_head, *args)
+  # back to normal first, while each one's parked KIF-ER pick still matches its species
+  [pokemon_body, pokemon_head].each { |pk| pk.makeUnmega if pk.is_a?(Pokemon) }
   fits = pokemon_body.species == pokemon_head.species ? (Megas.by_base[pokemon_body.species] || []).select { |_i, m| m[:stone] && Megas.usable?(m) } : []
   ret = megas_pbFuse(pokemon_body, pokemon_head, *args)
   if ret && !fits.empty?
