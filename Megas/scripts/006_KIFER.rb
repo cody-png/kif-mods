@@ -21,7 +21,15 @@ module Megas
   def self.fusion_er_kit(pkmn, ids)
     base = pkmn.megas_species_data
     halves = [base.head_pokemon.id, base.body_pokemon.id]
-    choices = [0, 1].flat_map { |i| ids[i] ? DATA[ids[i]][:er][:choices] : KIFER.choices_of(halves[i]) }
+    # a Mega half's list has its base species' length: KIF-ER finds the head's
+    # share of a fusion's list by the head species (Mega Charizard X's one
+    # ability fills Charizard's three places, as ER lists it three times)
+    choices = [0, 1].flat_map do |i|
+      own = KIFER.choices_of(halves[i])
+      next own if !ids[i]
+      mine = DATA[ids[i]][:er][:choices]
+      own.empty? ? mine : Array.new(own.length) { |k| mine[k % mine.length] }
+    end
     inn = begin
       @in_kit = true
       KIFER.pokemon_innates(pkmn)

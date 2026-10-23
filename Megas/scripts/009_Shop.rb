@@ -20,7 +20,7 @@ module Megas   # SILPH_CO_SWITCH: 008_Trainers.rb
     DATA.each_value { |m| by_stone[m[:stone]] ||= m if m[:stone] }
     SHOP.select { |tier, _| shop_tier_open?(tier) }.values.flatten.select do |s|
       m = by_stone[s]
-      m && GameData::Item.exists?(s) && (!m[:er_only] || er?)
+      m && GameData::Item.exists?(s) && usable?(m)   # an ER Mega needs KIF:ER on and one of its abilities coded
     end
   end
 end

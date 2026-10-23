@@ -29,14 +29,13 @@ class PokeBattle_RealBattlePeer
 end
 
 class PokeBattle_Battle
-  # Permanent mode: each trainer's holders are Mega before anyone is sent out
-  # (wild Pokémon never Mega Evolve)
+  # Each trainer's party as the mode wants it before anyone is sent out:
+  # Permanent, holders Mega; Once per battle, nobody (a save made at the end
+  # of a battle can hold a Mega). Wild Pokémon never Mega Evolve.
   alias megas_pbStartBattle pbStartBattle unless method_defined?(:megas_pbStartBattle)
   def pbStartBattle
-    if Megas.permanent?
-      Megas.trainer_parties(self, 0).each { |party| Megas.sync(party) }   # player, partner, rentals
-      Megas.trainer_parties(self, 1).each { |party| Megas.sync(party) } if trainerBattle?
-    end
+    Megas.trainer_parties(self, 0).each { |party| Megas.sync(party) }   # player, partner, rentals
+    Megas.trainer_parties(self, 1).each { |party| Megas.sync(party) } if trainerBattle?
     return megas_pbStartBattle
   end
 
@@ -49,6 +48,24 @@ class PokeBattle_Battle
     Megas.sync($Trainer.party) if Megas.permanent? && $Trainer
     return ret
   end
+end
+
+# PIF's pbAfterBattle (after pbEndOfBattle) turns the whole party and the
+# partner's back; in Permanent mode the Megas and Primals stay, then the sync
+# sorts out who should be one (fainted ones turn back)
+alias megas_pbAfterBattle pbAfterBattle unless Object.method_defined?(:megas_pbAfterBattle) || Object.private_method_defined?(:megas_pbAfterBattle)
+def pbAfterBattle(*args)
+  Megas.keeping = Megas.permanent?
+  begin
+    ret = megas_pbAfterBattle(*args)
+  ensure
+    Megas.keeping = false
+  end
+  Megas.sync($Trainer.party) if Megas.permanent? && $Trainer
+  return ret
+end
+
+class PokeBattle_Battle
 
   # Manual Primal: the Mega button reverts Kyogre / Groudon instead. It
   # doesn't use up the trainer's Mega Evolution.
@@ -109,8 +126,6 @@ end
 # Charizardite X is reacting!"); PIF's text still has the trainer and ring
 module Megas
   MEGA_TEXT = "{1}'s {2} is reacting to {3}'s {4}!" unless defined?(MEGA_TEXT)
-  unless @mega_text_swapped
-    KIF::TextSwap.add(MEGA_TEXT) { "{1}'s {2} is reacting!" }
-    @mega_text_swapped = true
-  end
+  # KIF empties its swaps on an F12 reload, so check its list, not a flag of ours
+  KIF::TextSwap.add(MEGA_TEXT) { "{1}'s {2} is reacting!" } unless KIF::TextSwap.has?(MEGA_TEXT)
 end

@@ -23,9 +23,8 @@ module Megas
     dex = pkmn.id_number
     off = GameData::Species.calculateShinyHueOffset(dex, pkmn.body_shiny, pkmn.head_shiny)
     return off if off.is_a?(Numeric)
-    body = dex > Settings::NB_POKEMON ? getBodyID(dex) : dex
-    head = dex > Settings::NB_POKEMON ? getHeadID(dex, body) : dex
-    return GameData::Species.calculateShinyHueOffsetDefaultMethod(body, head, dex, pkmn.body_shiny, pkmn.head_shiny).to_i
+    # never a fusion here (Mega fusions keep the fusion sprite)
+    return GameData::Species.calculateShinyHueOffsetDefaultMethod(dex, dex, dex, pkmn.body_shiny, pkmn.head_shiny).to_i
   end
 
   # KIF's shiny engine when it draws this Pokémon, else PIF's hue

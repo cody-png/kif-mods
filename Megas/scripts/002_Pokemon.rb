@@ -10,6 +10,16 @@
 module Megas
   class << self
     attr_accessor :primal_now   # true while the Mega button triggers a Manual Primal
+    attr_accessor :keeping      # true while PIF's pbAfterBattle turns the party back (Permanent: they stay)
+  end
+
+  def self.ids(form)
+    return form.is_a?(Array) ? form.compact : [form]
+  end
+
+  # base species => [[id, data], ...] in DATA's order (DATA never changes once loaded)
+  def self.by_base
+    @by_base ||= DATA.group_by { |_id, m| m[:base] }
   end
 
   # The Mega (kind :mega) or Primal (:primal) this Pokémon could turn into now
@@ -18,9 +28,8 @@ module Megas
     return nil if pkmn.egg?
     return fusion_available(pkmn, kind) if pkmn.isFusion?   # 010_Fusions.rb
     item = pkmn.instance_variable_get(:@item)
-    DATA.each do |id, m|
-      next if m[:base] != pkmn.species || (m[:primal] ? :primal : :mega) != kind
-      next if !usable?(m)
+    (by_base[pkmn.species] || []).each do |id, m|
+      next if (m[:primal] ? :primal : :mega) != kind || !usable?(m)
       return id if m[:stone] ? m[:stone] == item : pkmn.hasMove?(m[:move])
     end
     return nil
@@ -73,8 +82,9 @@ module Megas
   # counting when KIF:ER is turned off.
   def self.current(pkmn)
     id = pkmn.instance_variable_get(:@megas_form)
+    return nil if !id   # most Pokémon: nothing else to look at
     swap_picks(pkmn) if !@saving && pkmn.instance_variable_get(:@megas_pick_saved)   # first look after loading
-    return nil if !id || pkmn.instance_variable_get(:@megas_base) != pkmn.species
+    return nil if pkmn.instance_variable_get(:@megas_base) != pkmn.species
     list = id.is_a?(Array) ? id.compact : [id]   # a fusion: [head Mega, body Mega], nil for a normal half
     return nil if list.empty? || list.any? { |i| !DATA[i] || (DATA[i][:er_only] && !er?) }
     return id
@@ -85,6 +95,29 @@ module Megas
     return defined?(::KIFER) && KIFER.respond_to?(:enabled?) && KIFER.enabled? ? true : false
   end
 
+  # These rows show the design of ER's other form (Q18, Cody 2026-10-22), so
+  # they take that form's ER stats and types
+  ER_FORM = { :DRAGONITE_MEGA => :DRAGONITE_MEGA_Y, :DRAGONITE_MEGA_Y => :DRAGONITE_MEGA,
+              :FROSLASS_MEGA => :FROSLASS_MEGA_Y, :FROSLASS_MEGA_Y => :FROSLASS_MEGA,
+              :SKARMORY_MEGA => :SKARMORY_MEGA_Y, :SKARMORY_MEGA_Y => :SKARMORY_MEGA,
+              :CHANDELURE_MEGA => :CHANDELURE_MEGA_Y, :CHANDELURE_MEGA_Y => :CHANDELURE_MEGA } unless defined?(ER_FORM)
+
+  # KIF-ER's "Pokemon data" setting On (Cody, 2026-10-22): ER's [stats, types]
+  # for this Mega, else nil
+  def self.er_form(id)
+    return nil if !defined?(::KIFER::PokemonData) || !KIFER::PokemonData.respond_to?(:er_form)
+    return KIFER::PokemonData.er_form(ER_FORM[id] || id)
+  rescue StandardError
+    return nil
+  end
+
+  # Cheap check for the species_data cache (er_form itself builds new arrays)
+  def self.er_data_on?
+    return defined?(::KIFER::PokemonData) && KIFER::PokemonData.respond_to?(:on?) && KIFER::PokemonData.on? ? true : false
+  rescue StandardError
+    return false
+  end
+
   @species_cache = {}
 
   # The base species' data with the Mega's types, stats and ability.
@@ -93,18 +126,19 @@ module Megas
   # (KIF-ER's Moves setting, the randomizer) without touching the stats.
   def self.species_data(id, base_sd)
     er = er? ? DATA[id][:er] : nil
-    key = [base_sd.object_id, base_sd.base_stats.hash, !er.nil?, (defined?(KIF::Perf) ? KIF::Perf.token : nil)]
+    key = [base_sd.object_id, base_sd.base_stats.hash, !er.nil?, er_data_on?, (defined?(KIF::Perf) ? KIF::Perf.token : nil)]
     hit = @species_cache[id]
     return hit[1] if hit && hit[0] == key
+    form = er_form(id)
     m = DATA[id]
     sd = base_sd.clone
     stats = base_sd.base_stats.dup
-    if er
-      er[:stats].each { |stat, v| stats[stat] = v if stat != :HP }   # HP never changes mid-battle
+    if form || er
+      (form ? form[0] : er[:stats]).each { |stat, v| stats[stat] = v if stat != :HP }   # HP never changes mid-battle
     else
       m[:delta].each { |stat, d| stats[stat] = [stats[stat] + d, 1].max }
     end
-    types = er ? er[:types] : m[:types]
+    types = form ? form[1] : (er ? er[:types] : m[:types])
     sd.instance_variable_set(:@base_stats, stats)
     sd.instance_variable_set(:@type1, types[0])
     sd.instance_variable_set(:@type2, types[1] || types[0])
@@ -166,7 +200,10 @@ class Pokemon
 
   # KIF-ER's saved ability pick: a pick made from the Mega's list must not
   # replace the base Pokémon's, so it is kept here while Mega and put back after
-  MEGAS_KIFER_PICK = [:@kifer_choice, :@kifer_choice_id, :@kifer_choice_fused] unless defined?(MEGAS_KIFER_PICK)
+  # (the last two: the second pick of a dual-ability fusion; 0.5.1 and older
+  # parked only the first three)
+  MEGAS_KIFER_PICK = [:@kifer_choice, :@kifer_choice_id, :@kifer_choice_fused,
+                      :@kifer_choice2, :@kifer_choice2_id] unless defined?(MEGAS_KIFER_PICK)
 
   def makeMega;   megas_become(Megas.available(self, :mega));   end
   def makePrimal; megas_become(Megas.available(self, :primal)); end
@@ -174,6 +211,7 @@ class Pokemon
 
   def megas_become(id)
     return if !id
+    makeUnmega if @megas_form   # a stale state (the species changed under it) gives its picks back first
     @megas_kifer_pick = MEGAS_KIFER_PICK.map { |v| instance_variable_get(v) }
     @megas_form = id
     @megas_base = @species
@@ -181,15 +219,12 @@ class Pokemon
   end
 
   def makeUnmega
-    return if !@megas_form
+    return if !@megas_form || Megas.keeping
+    Megas.swap_picks(self) if @megas_pick_saved   # loaded and not looked at yet: the picks are still swapped
     remove_instance_variable(:@megas_form)
     remove_instance_variable(:@megas_base) if instance_variable_defined?(:@megas_base)
     if instance_variable_defined?(:@megas_kifer_pick)
-      MEGAS_KIFER_PICK.zip(remove_instance_variable(:@megas_kifer_pick) || []).each do |v, x|
-        if !x.nil? then instance_variable_set(v, x)
-        elsif instance_variable_defined?(v) then remove_instance_variable(v)
-        end
-      end
+      Megas.put_picks(self, remove_instance_variable(:@megas_kifer_pick) || [])
     end
     calc_stats
   end
@@ -214,17 +249,18 @@ end
 # loading (@megas_pick_saved). In memory nothing changes.
 #===============================================================================
 module Megas
-  def self.swap_picks(pk)
-    names = Pokemon::MEGAS_KIFER_PICK
-    now = names.map { |v| pk.instance_variable_get(v) }
-    parked = pk.instance_variable_get(:@megas_kifer_pick) || []
-    names.each_with_index do |v, i|
-      if !parked[i].nil?
-        pk.instance_variable_set(v, parked[i])
-      elsif pk.instance_variable_defined?(v)
-        pk.remove_instance_variable(v)
+  # Puts parked picks back; a shorter (older) parked list leaves the rest alone
+  def self.put_picks(pk, parked)
+    Pokemon::MEGAS_KIFER_PICK.first(parked.length).zip(parked).each do |v, x|
+      if !x.nil? then pk.instance_variable_set(v, x)
+      elsif pk.instance_variable_defined?(v) then pk.remove_instance_variable(v)
       end
     end
+  end
+
+  def self.swap_picks(pk)
+    now = Pokemon::MEGAS_KIFER_PICK.map { |v| pk.instance_variable_get(v) }
+    put_picks(pk, pk.instance_variable_get(:@megas_kifer_pick) || [])
     pk.instance_variable_set(:@megas_kifer_pick, now)
     if pk.instance_variable_get(:@megas_pick_saved)
       pk.remove_instance_variable(:@megas_pick_saved)
@@ -240,7 +276,9 @@ module Megas
     if $PokemonStorage && $PokemonStorage.respond_to?(:maxBoxes)
       $PokemonStorage.maxBoxes.times { |b| $PokemonStorage.maxPokemon(b).times { |i| mons << $PokemonStorage[b, i] } }
     end
-    return mons.compact.select { |pk| pk.instance_variable_get(:@megas_form) && pk.instance_variable_defined?(:@megas_kifer_pick) }
+    # one still in the saved layout (loaded, not looked at since) is saved as it is
+    return mons.compact.select { |pk| pk.instance_variable_get(:@megas_form) && pk.instance_variable_defined?(:@megas_kifer_pick) &&
+                                      !pk.instance_variable_get(:@megas_pick_saved) }
   end
 
   def self.with_base_picks

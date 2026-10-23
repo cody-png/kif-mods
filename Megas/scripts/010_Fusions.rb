@@ -14,10 +14,6 @@
 # State: @megas_form = [head Mega id or nil, body Mega id or nil].
 #===============================================================================
 module Megas
-  def self.ids(form)
-    return form.is_a?(Array) ? form.compact : [form]
-  end
-
   def self.fusion_halves(pkmn)
     base = pkmn.megas_species_data
     return [] if !base.respond_to?(:head_pokemon) || !base.head_pokemon
@@ -41,16 +37,17 @@ module Megas
     item = pkmn.instance_variable_get(:@item)
     kinds = lambda { |m| (m[:primal] ? :primal : :mega) == kind && usable?(m) }
     held = halves.map do |sp|
-      DATA.find { |_i, m| m[:base] == sp && kinds.call(m) && (m[:stone] ? m[:stone] == item : pkmn.hasMove?(m[:move])) }
+      (by_base[sp] || []).find { |_i, m| kinds.call(m) && (m[:stone] ? m[:stone] == item : pkmn.hasMove?(m[:move])) }
     end
     return nil if !held[0] && !held[1]
-    i = if held[0] && held[1] then (pkmn.instance_variable_get(:@megas_fusion_half) == :body ? 1 : 0)
-        else (held[0] ? 0 : 1) end
+    i = if !held[0] || !held[1] then (held[0] ? 0 : 1)
+        elsif !held[0][1][:stone] != !held[1][1][:stone] then (held[0][1][:stone] ? 0 : 1)   # stone beats a move (Dragon Ascent)
+        else (pkmn.instance_variable_get(:@megas_fusion_half) == :body ? 1 : 0) end   # one stone fits both
     ids = [nil, nil]
     ids[i] = held[i][0]
     if kind == :mega && player_owns?(pkmn)
       other = halves[1 - i]
-      found = DATA.select { |_i, m| m[:base] == other && kinds.call(m) && m[:stone] && in_bag?(m[:stone]) }
+      found = (by_base[other] || []).select { |_i, m| kinds.call(m) && m[:stone] && in_bag?(m[:stone]) }
       found = found.sort_by { |_i, m| m[:stone] == item ? 0 : 1 }   # the same stone first (X x X)
       ids[1 - i] = found[0][0] if found[0]
     end
@@ -63,7 +60,7 @@ module Megas
   def self.fusion_species_data(ids, base)
     er = er?
     key = [base.object_id, base.base_stats.hash, er, (defined?(KIF::Perf) ? KIF::Perf.token : nil)]
-    hit = @fusion_cache[ids]
+    hit = @fusion_cache[[ids, base.id]]   # two fusions with the same Mega half don't evict each other
     return hit[1] if hit && hit[0] == key
     sd = base.clone
     head = ids[0] ? species_data(ids[0], base.head_pokemon) : base.head_pokemon
@@ -77,7 +74,7 @@ module Megas
     sd.instance_variable_set(:@hidden_abilities, sd.send(:calculate_hidden_abilities))
     sd.instance_variable_set(:@real_name, _INTL("Mega {1}", base.real_name))
     sd.instance_variable_set(:@mega_stone, ids.compact.map { |i| DATA[i][:stone] }.compact.first)
-    @fusion_cache[ids] = [key, sd]
+    @fusion_cache[[ids, base.id]] = [key, sd]
     return sd
   end
 
@@ -155,14 +152,18 @@ module Megas
 end
 
 # The DNA Splicer asks which half goes Mega when one stone fits both halves
+# (only for a Mega or Primal that can be used now)
 alias megas_pbFuse pbFuse unless Object.method_defined?(:megas_pbFuse) || Object.private_method_defined?(:megas_pbFuse)
 def pbFuse(pokemon_body, pokemon_head, *args)
-  both = pokemon_body.species == pokemon_head.species &&
-         Megas::DATA.any? { |_i, m| m[:base] == pokemon_body.species && m[:stone] }
+  fits = pokemon_body.species == pokemon_head.species ? (Megas.by_base[pokemon_body.species] || []).select { |_i, m| m[:stone] && Megas.usable?(m) } : []
   ret = megas_pbFuse(pokemon_body, pokemon_head, *args)
-  if ret && both
-    cmd = pbMessage(_INTL("A Mega Stone fits both halves. When {1} holds one, which half should Mega Evolve?", pokemon_body.name),
-                    [_INTL("Head"), _INTL("Body")], 1)
+  if ret && !fits.empty?
+    text = if fits.all? { |_i, m| m[:primal] }
+             _INTL("Its orb fits both halves. When {1} holds it, which half should undergo Primal Reversion?", pokemon_body.name)
+           else
+             _INTL("A Mega Stone fits both halves. When {1} holds one, which half should Mega Evolve?", pokemon_body.name)
+           end
+    cmd = pbMessage(text, [_INTL("Head"), _INTL("Body")], 1)
     pokemon_body.instance_variable_set(:@megas_fusion_half, cmd == 1 ? :body : :head)
   end
   return ret

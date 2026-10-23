@@ -15,8 +15,9 @@ module Megas
     GameData::Item.each { |it| used[it.id_number] = true }
     n = FIRST_ITEM_NUMBER
     DATA.each_value do |m|
-      # the item randomizer never hands out a Mega Stone (no Megas before Silph Co)
-      if m[:stone] && !m[:primal] && defined?(NON_RANDOMIZE_ITEMS) && !NON_RANDOMIZE_ITEMS.include?(m[:stone])
+      # the randomizers never hand out or replace a stone or orb (no Megas before
+      # Silph Co; random shop items would swap them out of Saffron's stock)
+      if m[:stone] && defined?(NON_RANDOMIZE_ITEMS) && !NON_RANDOMIZE_ITEMS.include?(m[:stone])
         NON_RANDOMIZE_ITEMS << m[:stone]
       end
       next if !m[:stone] || GameData::Item.exists?(m[:stone])   # Rayquaza needs a move, not a stone

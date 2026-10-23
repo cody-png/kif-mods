@@ -38,7 +38,7 @@ module Megas
     return [] if pk.respond_to?(:isTripleFusion?) && pk.isTripleFusion?
     halves = pk.isFusion? ? fusion_halves(pk).zip([:head, :body]) : [[pk.species, nil]]
     return halves.filter_map do |sp, half|
-      _id, m = DATA.find { |_i, d| d[:base] == sp && d[:stone] && !d[:primal] && usable?(d) }
+      _id, m = (by_base[sp] || []).find { |_i, d| d[:stone] && !d[:primal] && usable?(d) }
       [half, m[:stone]] if m
     end
   end
