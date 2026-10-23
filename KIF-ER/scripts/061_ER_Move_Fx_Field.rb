@@ -373,6 +373,7 @@ class PokeBattle_WeatherMove
   def pbEffectGeneral(user)
     kifer_mx_wm_pbEffectGeneral(user)
     return if !KIFER::MoveFxField.er?(self, KIFER::MoveFxField::WEATHER_MOVES)
+    return if defined?(KIFER::ItemChanges) && KIFER::ItemChanges.on?   # 079 already made every move's weather 8 / 12
     f = @battle.field
     f.weatherDuration = KIFER::MoveFxField.er_turns(f.weatherDuration) if f.weather == @weatherType && f.weatherDuration > 0
   end

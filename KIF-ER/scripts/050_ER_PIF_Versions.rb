@@ -300,6 +300,7 @@ module KIFER
       return if battle.field.weather == weather
       splash(battler, ability)
       battle.pbStartWeather(battler, weather, true)   # hides the splash
+      return if defined?(KIFER::ItemChanges) && KIFER::ItemChanges.on?   # 079 already made it 8 / 12
       d = battle.field.weatherDuration
       battle.field.weatherDuration = (d > 5) ? 12 : 8 if d > 0 && battle.field.weather == weather
     end

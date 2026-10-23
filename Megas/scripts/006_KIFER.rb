@@ -1,8 +1,7 @@
 #===============================================================================
 # With KIF: Elite Redux on, a Mega has its Elite Redux abilities: its own
 # choice list and innates (types and stats: Megas.species_data).
-# KIF-ER 0.6.4+ has a kit API for this (KIFER.register_kit / refresh_battler);
-# older KIF-ER gets the same through aliases.
+# Through KIF-ER's kit API (KIFER.register_kit / refresh_battler, 0.6.4+).
 #===============================================================================
 module Megas
   # The Mega's ER kit for this Pokémon while it's Mega (or Primal), else nil
@@ -17,7 +16,8 @@ module Megas
   # A Mega fusion: head choices + body choices as for any fusion, with a Mega
   # half's ER kit in place of its base species'. Innates: KIF-ER's own pick for
   # the fusion, each one that came from a Mega half swapped for that Mega's
-  # innate in the same place.
+  # innate in the same place (KIF-ER 0.6.22+ says which half each pick came
+  # from; older ones: the first match, wrong for Charizard x Charizard).
   def self.fusion_er_kit(pkmn, ids)
     base = pkmn.megas_species_data
     halves = [base.head_pokemon.id, base.body_pokemon.id]
@@ -35,6 +35,15 @@ module Megas
       KIFER.pokemon_innates(pkmn)
     ensure
       @in_kit = false
+    end
+    at = KIFER.respond_to?(:picked_at) && KIFER.picked_at(pkmn)
+    if at && at.length == inn.length
+      n = KIFER.species_innates(halves[0]).length   # head's share of the pool
+      inn = inn.each_with_index.map do |a, p|
+        i = at[p] < n ? 0 : 1
+        ids[i] ? (DATA[ids[i]][:er][:innates][at[p] - i * n] || a) : a
+      end
+      return { :choices => choices, :innates => inn }
     end
     done = Array.new(inn.length, false)
     [0, 1].each do |i|

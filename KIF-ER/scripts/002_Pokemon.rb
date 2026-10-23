@@ -17,9 +17,11 @@ class Pokemon
     return []
   end
 
-  # Replace a fusion's 3 picked innates (Summary screen, phase 2)
+  # Replace a fusion's 3 picked innates (Summary screen, phase 2). By name only:
+  # each pick's half is then the first match (KIFER.picked_at)
   def kifer_pick=(list)
     @kifer_picked = list.is_a?(Array) ? list.map { |a| a.to_sym }.first(3) : nil
+    @kifer_picked_at = nil
   end
 end
 
@@ -77,8 +79,22 @@ module KIFER
       idxs = (0...pool.length).to_a.sample([3, pool.length].min).sort
       picked = idxs.map { |i| pool[i] }                   # keep head-then-body order
       pkmn.instance_variable_set(:@kifer_picked, picked)
+      pkmn.instance_variable_set(:@kifer_picked_at, idxs)
     end
     return picked.dup
+  end
+
+  # Where each of a fusion's picked innates sits in its pool (0-2 head, 3-5
+  # body), so a self-fusion's picks keep their half (Megas: a Mega half swaps
+  # only its own). Picks saved without places: the first match for each.
+  def self.picked_at(pkmn)
+    picked = pkmn.instance_variable_get(:@kifer_picked)
+    return nil if !picked.is_a?(Array) || !pkmn.isFusion?
+    pool = fusion_pool(pkmn.get_head_species.id, pkmn.get_body_species.id)
+    at = pkmn.instance_variable_get(:@kifer_picked_at)
+    return at.dup if at.is_a?(Array) && at.map { |i| pool[i] } == picked
+    left = (0...pool.length).to_a
+    return picked.map { |a| i = left.find { |k| pool[k] == a }; left.delete(i); i }
   end
 
   # Every item of `part` is in `whole`, counting copies

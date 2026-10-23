@@ -410,6 +410,7 @@ class PokemonSummary_Scene
           if chosen.length == want
             pbPlayDecisionSE
             @pokemon.kifer_pick = chosen.sort.map { |k| pool[k] }
+            @pokemon.instance_variable_set(:@kifer_picked_at, chosen.sort)   # each pick's half
             return true
           end
           pbPlayBuzzerSE
