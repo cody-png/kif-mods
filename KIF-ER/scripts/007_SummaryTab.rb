@@ -249,8 +249,9 @@ class PokemonSummary_Scene
     kifer_hook_background
     @sprites["background"].setBitmap(KIFER::SummaryUI.gfx("bg_4"))
     overlay = @sprites["overlay"].bitmap
-    overlay.clear_rect(0, 0, 220, 50)
-    overlay.clear_rect(210, 56, 302, 328)
+    clear = Color.new(0, 0, 0, 0)   # fill_rect, not clear_rect: JoiPlay's engine has no clear_rect (Loopy)
+    overlay.fill_rect(0, 0, 220, 50, clear)
+    overlay.fill_rect(210, 56, 302, 328, clear)
     base = Color.new(248, 248, 248)
     shadow = Color.new(104, 104, 104)
     pbSetSystemFont(overlay)
