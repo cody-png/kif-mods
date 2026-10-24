@@ -621,8 +621,13 @@ class PokemonSummary_Scene
   def kifer_show_vpage
     disposeContestStats if respond_to?(:disposeContestStats)
     if @kifer_vpage == 4 && !@pokemon.egg?
-      kifer_draw_abilities_page
-      return
+      begin
+        kifer_draw_abilities_page
+        return
+      rescue StandardError => e   # an engine without something the page needs (Loopy: JoiPlay crash): log it, show Skills
+        KIFER.log("Abilities page failed: #{e.class}: #{e.message}\n  #{(e.backtrace || []).first(8).join("\n  ")}")
+        @kifer_vpage = 3
+      end
     end
     @kifer_vpage = 1 if @kifer_vpage == 4   # an egg has no Abilities page
     @page = KIFER::SummaryUI::PAGE_OF[@kifer_vpage] || 1
