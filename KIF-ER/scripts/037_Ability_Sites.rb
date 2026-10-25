@@ -24,9 +24,10 @@
 #     - Stance Change (Aegislash), Disguise (Mimikyu), Shields Down (Minior):
 #       PIF checks the battler's ability itself; an innate works the same way.
 #     - Illusion: the "Go! ..." message names the disguise for an innate too.
-#     - KIF's move effectiveness hints: an immunity shown by an innate's
-#       pop-up (Volt Absorb, Levitate...) counts, and an innate's pop-up no
-#       longer reveals the main ability.
+#     - KIF's move effectiveness hints: an innate's immunity (Volt Absorb,
+#       Levitate...) counts from the start while foe info shows all (KIF
+#       1.2.3+ Foe Info: All, or older KIF), else once its pop-up shows; an
+#       innate's pop-up no longer reveals the main ability.
 #   Nothing changes while Innates is off.
 #===============================================================================
 module KIFER
@@ -167,6 +168,20 @@ module KIFER
       known = battle.instance_variable_get(:@kifer_as_known)
       return [] if !known || !battler || !battler.pokemon
       return known[battler.pokemon.object_id] || []
+    end
+
+    # A foe's abilities shown from the start: KIF 1.2.3+'s Foe Info setting
+    # (All, the default, or As seen); older KIF: always (Cody, 2026-10-25)
+    def self.show_all?
+      return true if !defined?(KIF::BattleInfo) || !KIF::BattleInfo.respond_to?(:show_all?)
+      return KIF::BattleInfo.show_all?
+    end
+
+    # Innates KIF's hints may use: all of them while foe info shows all
+    def self.hint_innates(battle, battler)
+      return shown_innates(battle, battler) if !show_all?
+      ids = battler && battler.respond_to?(:innate_ids) ? battler.innate_ids : nil
+      return ids.is_a?(Array) ? ids : []
     end
 
     def self.splash_innate(battler)
@@ -395,7 +410,7 @@ if defined?(KIF::MoveEffect) && KIF::MoveEffect.respond_to?(:revealed?) &&
     def revealed?(battle, target, ability)
       return true if kifer_as_revealed?(battle, target, ability)
       return false if !KIFER.enabled?
-      return KIFER::AbilitySites.shown_innates(battle, target).include?(ability) &&
+      return KIFER::AbilitySites.hint_innates(battle, target).include?(ability) &&
              KIFER::AbilitySites.active_now?(target, ability)
     end
 
@@ -403,7 +418,7 @@ if defined?(KIF::MoveEffect) && KIF::MoveEffect.respond_to?(:revealed?) &&
     def known_immunity?(move, type, user, target, val)
       return true if kifer_as_known_immunity?(move, type, user, target, val)
       return false if !KIFER.enabled? || ::Effectiveness.ineffective?(val) || user.hasMoldBreaker?
-      KIFER::AbilitySites.shown_innates(target.battle, target).each do |ab|
+      KIFER::AbilitySites.hint_innates(target.battle, target).each do |ab|
         next if !KIFER::AbilitySites.active_now?(target, ab)
         return true if self::TYPE_IMMUNE[ab] == type
         return true if ab == :SOUNDPROOF && move.soundMove?
