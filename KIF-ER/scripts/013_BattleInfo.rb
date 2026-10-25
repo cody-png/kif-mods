@@ -3,8 +3,8 @@
 #   KIF::BattleInfo.register_abilities(:kif_er) lists each battler's innates
 #   (and a dual fusion's Ability 2) under its main ability.
 #   - Your own Pokémon: always shown.
-#   - A foe's innate: "???" until the battle shows its pop-up (the notes
-#     037_Ability_Sites.rb keeps for KIF's effectiveness hints).
+#   - A foe's innate: shown from the start too (Cody, 2026-10-25: as in Elite
+#     Redux; it was "???" until its pop-up).
 #   - "Worked this battle": its handler changed something, showed a message or
 #     a pop-up (004_Triggers.rb notes it; not while the battle AI is only
 #     estimating).
@@ -12,23 +12,17 @@
 #===============================================================================
 module KIFER
   module BattleInfo
-    def self.own?(battler)
-      return KIF::BattleInfo.own?(battler) if KIF::BattleInfo.respond_to?(:own?)
-      return !battler.opposes?
-    end
-
     def self.rows(battle, battler)
       return [] if !KIFER.enabled? || !battler || !battler.pokemon
       ids = battler.respond_to?(:innate_ids) ? battler.innate_ids : nil
       return [] if !ids.is_a?(Array) || ids.empty?
-      mine = own?(battler)
       shown = KIFER::AbilitySites.respond_to?(:shown_innates) ? KIFER::AbilitySites.shown_innates(battle, battler) : []
       c2 = (KIFER.dual?(battler.pokemon) ? KIFER.chosen_ability2(battler.pokemon) : nil) rescue nil
       ids.each_with_index.map do |id, i|
         seen = shown.include?(id)
         { :label  => (i == 0 && c2 && id == c2) ? "ABILITY 2" : "INNATE",
           :ability => id,
-          :known  => mine || seen,
+          :known  => true,
           :worked => seen || KIFER.worked?(battle, battler, id) }
       end
     end

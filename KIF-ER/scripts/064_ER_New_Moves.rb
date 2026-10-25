@@ -109,10 +109,13 @@ end
 #-------------------------------------------------------------------------------
 class Pokemon
   class Move
-    alias kifer_nm_initialize initialize unless method_defined?(:kifer_nm_initialize)
+    # The game's own initialize, kept once. `alias ... unless method_defined?`
+    # can't see a private method like initialize, so a second load (Kirin,
+    # Ezalie's report) aliased this wrapper to itself: endless recursion.
+    KIFER::NewMoves.const_set(:MOVE_INIT, instance_method(:initialize)) unless KIFER::NewMoves.const_defined?(:MOVE_INIT, false)
     def initialize(move_id)
       er = KIFER::NewMoves.er_id(move_id)
-      return kifer_nm_initialize(move_id) unless er
+      return KIFER::NewMoves::MOVE_INIT.bind(self).call(move_id) unless er
       @id = KIFER::NewMoves.stand_in(er)
       @kifer_id = er
       @ppup = 0

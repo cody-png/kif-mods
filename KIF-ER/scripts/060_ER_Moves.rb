@@ -345,10 +345,11 @@ module GameData
 end
 
 class PokeBattle_Battle
-  alias kifer_mv_initialize initialize unless method_defined?(:kifer_mv_initialize)
+  # kept once, as 064 does: a method_defined? guard can't see private initialize
+  KIFER::Moves.const_set(:BATTLE_INIT, instance_method(:initialize)) unless KIFER::Moves.const_defined?(:BATTLE_INIT, false)
   def initialize(*args)
     KIFER::Moves.sync
-    kifer_mv_initialize(*args)
+    KIFER::Moves::BATTLE_INIT.bind(self).call(*args)
   end
 end
 
