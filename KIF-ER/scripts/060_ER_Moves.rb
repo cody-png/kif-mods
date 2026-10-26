@@ -8,7 +8,8 @@
 #   * Species learn ER's level-up moves, and ER's tutor list decides what TMs
 #     and tutors can teach. PIF egg moves stay. ER moves PIF lacks are left
 #     out for now. Fusions combine head + body as usual.
-#   * Change moves (party menu) also offers the species' ER tutor moves.
+#   * ER tutor moves: Tutor.net only (076); Change moves (party menu) offers
+#     KIF's own list (Cody, 2026-10-25).
 #   * Getting an HM also gives its field tool (ER lists drop many HMs, Cody
 #     2026-10-18: "it's just an HM Slave"). A save with HMs gets them on load.
 #   All in memory: the game data objects are changed in place and PIF's values
@@ -268,7 +269,7 @@ module KIFER
       return out
     end
 
-    # Change moves: the ER tutor moves of the species (head + body)
+    # Tutor.net (076): the ER tutor moves of the species (head + body)
     def self.tutor_moves_for(pkmn)
       return [] unless @applied && pkmn && !pkmn.egg? && !pkmn.shadowPokemon?
       return Array(pkmn.species_data.tutor_moves).uniq.select { |m| GameData::Move.exists?(m) }
@@ -378,14 +379,12 @@ if defined?(KIF::MoveLearning) && KIF::MoveLearning.respond_to?(:change_moves_li
   module KIF
     module MoveLearning
       class << self
+        # KIF's own list from the learnsets in use (no ER tutor moves: those
+        # are Tutor.net's, Cody 2026-10-25)
         alias kifer_mv_change_moves_list change_moves_list unless method_defined?(:kifer_mv_change_moves_list)
         def change_moves_list(pkmn)
           KIFER::Moves.sync
-          list = kifer_mv_change_moves_list(pkmn)
-          extra = KIFER::Moves.tutor_moves_for(pkmn)
-          return list if extra.empty?
-          known = pkmn.moves.map { |m| m.id }
-          return list | (extra - known)
+          return kifer_mv_change_moves_list(pkmn)
         end
       end
     end
