@@ -76,7 +76,10 @@ module KIFER
     picked = pkmn.instance_variable_get(:@kifer_picked)
     fresh = picked.is_a?(Array) && !picked.empty? && KIFER.sub_multiset?(picked, pool)
     unless fresh
-      idxs = (0...pool.length).to_a.sample([3, pool.length].min).sort
+      # from the personal ID: a trainer's fusion is rebuilt every fight and KIF's
+      # trainer rolls restore that ID, so it gets the same innates on a retry
+      rng = Random.new(pkmn.personalID.to_i)
+      idxs = (0...pool.length).to_a.sample([3, pool.length].min, random: rng).sort
       picked = idxs.map { |i| pool[i] }                   # keep head-then-body order
       pkmn.instance_variable_set(:@kifer_picked, picked)
       pkmn.instance_variable_set(:@kifer_picked_at, idxs)
