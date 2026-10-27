@@ -3,6 +3,9 @@
 #===============================================================================
 module DiffDupes
   CATEGORY      = "Differentiating Duplicates"
+  # KIF's mod id while this file loads: a setting registered later (after all
+  # mods load) has to name it, or it isn't on the mod's own settings page
+  MOD_ID = (defined?(KIF::Mods) && KIF::Mods.respond_to?(:current) && KIF::Mods.current) || "diff_dupes" unless defined?(MOD_ID)
   SET_MOVES     = :dd_moves      # 0 = Off, 1 = On
   SET_ABILITIES = :dd_abilities  # 0 = Off, 1 = On
   SET_KIFER     = :dd_kifer      # 0 = KIF:ER wins, 1 = this mod wins
@@ -126,8 +129,9 @@ module DiffDupes
     return if @kifer_setting_done || !defined?(::KIFER::LOADED)
     @kifer_setting_done = true
     when_settings_ready do
-      ::ModSettingsMenu.register_enum(SET_KIFER, "KIF:ER conflicts", ["KIF:ER wins", "This mod wins"], 0,
-        "Which version is used when KIF: Elite Redux also changes a move or ability.", CATEGORY)
+      ::ModSettingsMenu.register(SET_KIFER, :name => "KIF:ER conflicts", :type => :enum,
+        :values => ["KIF:ER wins", "This mod wins"], :default => 0, :category => CATEGORY, :mod => MOD_ID,
+        :description => "Which version is used when KIF: Elite Redux also changes a move or ability.")
     end
   end
 
