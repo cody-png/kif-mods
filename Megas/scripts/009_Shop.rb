@@ -7,9 +7,9 @@ module Megas   # SILPH_CO_SWITCH: 008_Trainers.rb
   LEAGUE_SWITCH   = 12  unless defined?(LEAGUE_SWITCH)     # PIF: "beat league"
 
   def self.shop_tier_open?(tier)
+    return false if !silph_cleared?
     sw = $game_switches
-    return false if !sw || !sw[SILPH_CO_SWITCH]
-    return sw[LEAGUE_SWITCH] ? true : false if tier == :league
+    return sw && sw[LEAGUE_SWITCH] ? true : false if tier == :league
     return ($Trainer ? $Trainer.badge_count : 0) >= tier if tier.is_a?(Integer)
     return true   # :silph
   end

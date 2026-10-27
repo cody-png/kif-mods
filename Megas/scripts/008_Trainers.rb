@@ -11,8 +11,23 @@ module Megas
   RIVAL_TYPES     = [:RIVAL1, :RIVAL2] unless defined?(RIVAL_TYPES)
   SILPH_CO_SWITCH = 228 unless defined?(SILPH_CO_SWITCH)   # PIF: "beat silph co"
 
+  # Silph Co beaten (switch 228), remembered in the save as a plain true:
+  # an old event in Silph Co 7F's west wall (map 665) turns 228 off again.
+  # Switch 191 (Rocket gone from Saffron) is set right after and stays on,
+  # so a save that lost 228 before this was remembered still counts.
+  ROCKET_GONE_SWITCH = 191 unless defined?(ROCKET_GONE_SWITCH)
+
+  def self.silph_cleared?
+    g = $PokemonGlobal
+    if $game_switches && ($game_switches[SILPH_CO_SWITCH] || $game_switches[ROCKET_GONE_SWITCH])
+      g.instance_variable_set(:@megas_silph, true) if g && !g.instance_variable_get(:@megas_silph)
+      return true
+    end
+    return g ? g.instance_variable_get(:@megas_silph) == true : false
+  end
+
   def self.stone_trainer?(trainer)
-    return false if !$game_switches || !$game_switches[SILPH_CO_SWITCH]
+    return false if !silph_cleared?
     t = trainer.trainer_type
     return RIVAL_TYPES.include?(t) || (defined?(::GYM_LEADERS_TYPES) && ::GYM_LEADERS_TYPES.include?(t)) ? true : false
   end

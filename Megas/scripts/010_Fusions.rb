@@ -9,6 +9,9 @@
 #   * The fused data is PIF's own FusedSpecies with the Mega half (or halves)
 #     swapped in, so PIF's fusion rules (dominant stats, types) apply.
 #   * The self-fusion boost only for matching Megas (X x X, never X x Y).
+#   * Stats (Cody, 2026-10-26, setting "Mega fusion stats"): Full, the default,
+#     adds each Mega half's whole boost to the plain fusion (one half +100
+#     BST, both +200); Split uses PIF's 2/3 + 1/3 share with the Mega half in.
 #   * Sprite (Cody, 2026-10-22): both halves' own sprites drawn together,
 #     striped where they overlap, with the Mega badge (striped_fusion). Only
 #     when a half's sprite is missing: the fusion sprite + badge + aura.
@@ -60,7 +63,8 @@ module Megas
   # PIF's FusedSpecies for this fusion with the Mega half (or halves) in
   def self.fusion_species_data(ids, base)
     er = er?
-    key = [base.object_id, base.base_stats.hash, er, (defined?(KIF::Perf) ? KIF::Perf.token : nil)]
+    full = full_boost?
+    key = [base.object_id, base.base_stats.hash, er, full, (defined?(KIF::Perf) ? KIF::Perf.token : nil)]
     hit = @fusion_cache[[ids, base.id]]   # two fusions with the same Mega half don't evict each other
     return hit[1] if hit && hit[0] == key
     sd = base.clone
@@ -70,7 +74,15 @@ module Megas
     sd.instance_variable_set(:@body_pokemon, body)
     sd.instance_variable_set(:@type1, sd.send(:calculate_type1))
     sd.instance_variable_set(:@type2, sd.send(:calculate_type2))
-    sd.instance_variable_set(:@base_stats, sd.send(:calculate_base_stats))
+    stats = sd.send(:calculate_base_stats)
+    if full   # each Mega half adds its whole boost to the plain fusion, not a 2/3 or 1/3 share
+      stats = base.base_stats.dup
+      [[head, base.head_pokemon], [body, base.body_pokemon]].each_with_index do |(mega, plain), i|
+        next if !ids[i]
+        mega.base_stats.each { |s, v| stats[s] = [stats[s] + v - plain.base_stats[s], 1].max }
+      end
+    end
+    sd.instance_variable_set(:@base_stats, stats)
     sd.instance_variable_set(:@abilities, sd.send(:calculate_abilities))
     sd.instance_variable_set(:@hidden_abilities, sd.send(:calculate_hidden_abilities))
     sd.instance_variable_set(:@real_name, _INTL("Mega {1}", base.real_name))

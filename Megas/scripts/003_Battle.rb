@@ -15,7 +15,26 @@ class PokeBattle_Battle
     return false if defined?(KIFER::MoveFxField) && KIFER::MoveFxField.respond_to?(:magic_room?) && KIFER::MoveFxField.magic_room?(self)
     side  = battler.idxOwnSide
     owner = pbGetOwnerIndexFromBattlerIndex(idxBattler)
-    return @megaEvolution[side][owner] == -1   # -2 once this trainer has Mega Evolved
+    used = @megaEvolution[side][owner]   # -2 once this trainer has Mega Evolved
+    return true if used == -1
+    # a Manual Primal doesn't use up the Mega, so it can still revert after one
+    pk = battler.pokemon
+    return used == -2 && !Megas.available(pk, :mega) && Megas.available(pk, :primal) ? true : false
+  end
+
+  def megas_mega_done?(side, owner)
+    return (@megas_done || {})[[side, owner]] ? true : false
+  end
+
+  # Un-ticking the button sets -1: after a Mega it has to stay -2
+  [:pbUnregisterMegaEvolution, :pbToggleRegisteredMegaEvolution].each do |m|
+    alias_method :"megas_#{m}", m unless method_defined?(:"megas_#{m}")
+    define_method(m) do |idxBattler|
+      send(:"megas_#{m}", idxBattler)
+      side  = @battlers[idxBattler].idxOwnSide
+      owner = pbGetOwnerIndexFromBattlerIndex(idxBattler)
+      @megaEvolution[side][owner] = -2 if @megaEvolution[side][owner] == -1 && megas_mega_done?(side, owner)
+    end
   end
 end
 
@@ -71,7 +90,7 @@ end
 class PokeBattle_Battle
 
   # Manual Primal: the Mega button reverts Kyogre / Groudon instead. It
-  # doesn't use up the trainer's Mega Evolution.
+  # doesn't use up the trainer's Mega Evolution, before or after a Mega.
   alias megas_pbMegaEvolve pbMegaEvolve unless method_defined?(:megas_pbMegaEvolve)
   def pbMegaEvolve(idxBattler)
     b = @battlers[idxBattler]
@@ -85,10 +104,18 @@ class PokeBattle_Battle
       ensure
         Megas.primal_now = false
       end
-      @megaEvolution[side][owner] = -1 if @megaEvolution[side][owner] == idxBattler
+      if @megaEvolution[side][owner] == idxBattler
+        @megaEvolution[side][owner] = megas_mega_done?(side, owner) ? -2 : -1
+      end
       return
     end
-    return megas_pbMegaEvolve(idxBattler)
+    ret = megas_pbMegaEvolve(idxBattler)
+    if b
+      side  = b.idxOwnSide
+      owner = pbGetOwnerIndexFromBattlerIndex(idxBattler)
+      (@megas_done ||= {})[[side, owner]] = true if @megaEvolution[side][owner] == -2
+    end
+    return ret
   end
 end
 
@@ -102,12 +129,12 @@ module Megas
   end
 end
 
-# A stone can't be knocked off, stolen or swapped while it can Mega Evolve its holder
-# (while Mega, PIF's own check already covers it through species_data.mega_stone)
+# A stone can't be knocked off, stolen or swapped while it can Mega Evolve its holder,
+# also while Mega (PIF's own check only knows a double Mega fusion's head stone)
 class PokeBattle_Battler
   alias megas_unlosableItem? unlosableItem? unless method_defined?(:megas_unlosableItem?)
   def unlosableItem?(check_item)
-    if check_item && !@effects[PBEffects::Transform] && @pokemon && !@pokemon.mega?
+    if check_item && !@effects[PBEffects::Transform] && @pokemon
       sp = Megas.stone_species[check_item]
       return true if sp && (sp == @pokemon.species || (@pokemon.isFusion? && Megas.fusion_halves(@pokemon).include?(sp)))
     end
