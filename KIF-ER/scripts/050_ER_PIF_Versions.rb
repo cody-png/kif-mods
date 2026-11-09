@@ -411,30 +411,42 @@ module KIFER
     end
 
     def self.aftermath_run(battle)
+      # the blast is a move too and ends in this same call: what it KOs waits for the loop below,
+      # or two of them would blast each other for ever while each is back at 1 HP
+      return if battle.instance_variable_get(:@kifer_v_aftermath_busy)
       list = aftermath_list(battle)
       return if list.empty?
-      todo = list.dup
-      list.clear
-      todo.each do |b, pkmn, kind, ability, turn|
-        next if battle.decision > 0 || turn != battle.turnCount
-        next if !b.equal?(battle.battlers[b.index]) || !b.pokemon.equal?(pkmn) || b.hp > 0
-        next if !battle.battlers.any? { |o| o && !o.equal?(b) && !o.fainted? && o.near?(b) }
-        was_fainted = b.instance_variable_get(:@fainted)
-        b.hp = 1                                  # back for the move only
-        b.instance_variable_set(:@fainted, false)
-        old = KIFER::Specials2.outburst
-        KIFER::Specials2.outburst = kind
-        begin
-          KIFER::BatchF.use_extra_move(b, KIFER::Specials2.blast_id(kind), -1, 100, ability)
-        rescue StandardError => e
-          KIFER.log("Aftermath: #{e.class}: #{e.message}")
-        ensure
-          KIFER::Specials2.outburst = old
-          b.hp = 0
-          b.instance_variable_set(:@fainted, was_fainted)
+      battle.instance_variable_set(:@kifer_v_aftermath_busy, true)
+      begin
+        until list.empty?
+          todo = list.dup
+          list.clear
+          todo.each { |entry| aftermath_blast(battle, *entry) }
         end
-        battle.pbJudge
+      ensure
+        battle.instance_variable_set(:@kifer_v_aftermath_busy, false)
       end
+    end
+
+    def self.aftermath_blast(battle, b, pkmn, kind, ability, turn)
+      return if battle.decision > 0 || turn != battle.turnCount
+      return if !b.equal?(battle.battlers[b.index]) || !b.pokemon.equal?(pkmn) || b.hp > 0
+      return if !battle.battlers.any? { |o| o && !o.equal?(b) && !o.fainted? && o.near?(b) }
+      was_fainted = b.instance_variable_get(:@fainted)
+      b.hp = 1                                  # back for the move only
+      b.instance_variable_set(:@fainted, false)
+      old = KIFER::Specials2.outburst
+      KIFER::Specials2.outburst = kind
+      begin
+        KIFER::BatchF.use_extra_move(b, KIFER::Specials2.blast_id(kind), -1, 100, ability)
+      rescue StandardError => e
+        KIFER.log("Aftermath: #{e.class}: #{e.message}")
+      ensure
+        KIFER::Specials2.outburst = old
+        b.hp = 0
+        b.instance_variable_set(:@fainted, was_fainted)
+      end
+      battle.pbJudge
     end
 
     # Damp: contact makes the other Pokemon pure Water
