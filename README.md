@@ -7,5 +7,5 @@ One folder per mod, each with its mod.json. Modpacks go in modpacks/<name>/modpa
 | Mod | Version |
 |---|---|
 | KIF: Elite Redux | 0.6.32 |
-| Megas | 0.5.7 |
+| Megas | 0.6.0 |
 | Differentiating Duplicates | 0.6.3 |

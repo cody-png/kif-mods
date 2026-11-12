@@ -5,6 +5,8 @@
 #   Primal trigger:  Auto (on switch-in) / Manual (the Mega button)
 #   Mega fusion stats: Full (default; each Mega half adds its whole boost,
 #                    Cody 2026-10-26) / Split (PIF's 2/3 + 1/3 share)
+#   Mega fusion sprite: Striped (default) / Fusion sprite (the player's own
+#                    <head>.<body>.png in Graphics/CustomBattlers/Megas, if any)
 # Trainers follow the same rules as the player.
 #===============================================================================
 module Megas
@@ -12,6 +14,7 @@ module Megas
   SETTING_MODE   = :megas_mode         unless defined?(SETTING_MODE)     # 0 Once per battle, 1 Permanent, 2 Permanent+
   SETTING_PRIMAL = :megas_primal       unless defined?(SETTING_PRIMAL)   # 0 Auto, 1 Manual
   SETTING_FUSION = :megas_fusion_stats unless defined?(SETTING_FUSION)   # 0 Full, 1 Split
+  SETTING_FSPR   = :megas_fusion_sprite unless defined?(SETTING_FSPR)    # 0 Striped, 1 Fusion sprite
   OLD_LIMIT      = :megas_perm_limit   unless defined?(OLD_LIMIT)        # 0.4.0's Permanent limit (1 = No limit)
 
   def self.setting(key)
@@ -25,6 +28,7 @@ module Megas
   def self.one_per_party?; setting(SETTING_MODE) == 1;   end
   def self.manual_primal?; setting(SETTING_PRIMAL) == 1; end
   def self.full_boost?;    setting(SETTING_FUSION) == 0; end
+  def self.fusion_sprite?; setting(SETTING_FSPR) == 1;   end
 
   def self.register_settings
     resync = proc { |_v| Megas.sync($Trainer.party) if $Trainer }   # Mega-ness of the party follows the mode
@@ -42,6 +46,8 @@ module Megas
     end
     enum.call(SETTING_FUSION, "Mega fusion stats", ["Full", "Split"],
       "Full: each Mega half adds its whole Mega boost to a fusion. Split: the boost is shared like other fusion stats.", restat)
+    enum.call(SETTING_FSPR, "Mega fusion sprite", ["Striped", "Fusion sprite"],
+      "Striped: both halves drawn together. Fusion sprite: your own head.body.png from Graphics/CustomBattlers/Megas when there is one, else striped.")
     migrate_limit
   end
 

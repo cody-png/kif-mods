@@ -1,6 +1,6 @@
 # Megas
 
-Mega Evolution and Primal Reversion for KIF (Kuray's Infinite Fusion), fusions included. This page describes Megas 0.5.7.
+Mega Evolution and Primal Reversion for KIF (Kuray's Infinite Fusion), fusions included. This page describes Megas 0.6.0.
 
 ## What it adds
 
@@ -40,6 +40,7 @@ Options > Mods > Browse > KIF Mods (cody-png) > Megas. It starts working the nex
   - **Permanent+:** every stone holder in your party is Mega all the time, so a team of six Megas works.
   - In both Permanent modes, Megas have no Mega button. After giving or taking a stone, or putting a Mega in the PC, open your party's Summary or start a battle to update who is Mega.
 - **Mega fusion stats:** Full (default) or Split; see Fusions.
+- **Mega fusion sprite:** Striped (default) or Fusion sprite; see Your own Mega sprites.
 - **Primals:** Kyogre with the Blue Orb, Groudon with the Red Orb, and with KIF: Elite Redux, Snorlax with Primal Snorlaxite.
   - Primal trigger **Auto** (default): it reverts the moment it is sent out.
   - Primal trigger **Manual**: use the Mega button (also in the Permanent modes).
@@ -99,6 +100,16 @@ Options > Mods > Browse > KIF Mods (cody-png) > Megas. It starts working the nex
   - Innates Off with Pokemon data On gives official abilities but Elite Redux stats and types.
   - Turning off Pokemon data alone does not bring back official Megas.
 - Elite Redux-only stones are only sold, and only work, while KIF: Elite Redux's Innates setting is On.
+
+## Your own Mega sprites
+
+You can swap any Mega's sprite for your own. Mod updates never touch these files.
+
+- **Where:** `Graphics/CustomBattlers/Megas` in the game folder (next to InfiniteFusion.exe). Make the folder if it isn't there.
+- **A Mega on its own:** name the file after the Mega: `CHARIZARD_MEGA_X.png` (Mega Charizard X), `BLASTOISE_MEGA.png`. The names are the file names in the mod's own `Graphics/Battlers` folder. Use a 192x192 image like those. It also shows for that Mega half inside a striped Mega fusion.
+- **A Mega fusion:** name it `head.body.png` with the two dex numbers, for example `6.9.png` for Charizard (head) x Blastoise (body). It shows only when Options > KIF Settings > Mods > Megas > **Mega fusion sprite** is **Fusion sprite**. With **Striped** (default), or when there is no such file, the Mega fusion is drawn striped as before.
+- **Import Sprites:** drop the files in the Import Sprites folder as usual and the game puts them in the right place on the next start. A solo Mega's file goes by its name (`CHARIZARD_MEGA_X.png`). A Mega fusion's file needs `.mega` in the name: `6.9.mega.png`. Without it, `6.9.png` is a normal Charizard x Blastoise sprite and goes where normal fusion sprites go. The game folder must be writable (not on a phone).
+- Shiny Megas get the usual shiny colours on your sprite too.
 
 ## Limits
 
