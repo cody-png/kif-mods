@@ -148,6 +148,26 @@ class Pokemon
     ok = KIFER.enabled? && value && GameData::Ability.exists?(value) && !KIFER.raw_ability && !(t && t[:pif] == false)
     @kifer_forced = ok ? true : nil
   end
+
+  # Multitype's Plate type: PIF's type1/type2 read @ability, and ability_id
+  # above returns the choice without storing it, so with the mod on @ability
+  # stayed nil and a Plate did nothing (Arceus, Arcvoir).
+  alias kifer_mt_type1 type1 unless method_defined?(:kifer_mt_type1)
+  alias kifer_mt_type2 type2 unless method_defined?(:kifer_mt_type2)
+  def type1; return kifer_multitype { kifer_mt_type1 }; end
+  def type2; return kifer_multitype { kifer_mt_type2 }; end
+
+  def kifer_multitype
+    return yield if @ability == :MULTITYPE || !KIFER.enabled? || !@item.to_s.end_with?("PLATE")
+    return yield unless ability_id == :MULTITYPE
+    old = @ability
+    @ability = :MULTITYPE
+    begin
+      return yield
+    ensure
+      @ability = old
+    end
+  end
 end
 
 # Ability Capsule / Secret Capsule while Innates is on: pick another ER choice.
