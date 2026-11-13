@@ -107,9 +107,18 @@ You can swap any Mega's sprite for your own. Mod updates never touch these files
 
 - **Where:** `Graphics/CustomBattlers/Megas` in the game folder (next to InfiniteFusion.exe). Make the folder if it isn't there.
 - **A Mega on its own:** name the file after the Mega: `CHARIZARD_MEGA_X.png` (Mega Charizard X), `BLASTOISE_MEGA.png`. The names are the file names in the mod's own `Graphics/Battlers` folder. Use a 192x192 image like those. It also shows for that Mega half inside a striped Mega fusion.
-- **A Mega fusion:** name it `head.body.png` with the two dex numbers, for example `6.9.png` for Charizard (head) x Blastoise (body). It shows only when Options > KIF Settings > Mods > Megas > **Mega fusion sprite** is **Fusion sprite**. With **Striped** (default), or when there is no such file, the Mega fusion is drawn striped as before.
+- **A Mega fusion:** name it `head.body.png` or `head.body.mega.png` with the two dex numbers, for example `6.9.png` or `6.9.mega.png` for Charizard (head) x Blastoise (body). If both are there, `6.9.png` is used. It shows only when Options > KIF Settings > Mods > Megas > **Mega fusion sprite** is **Fusion sprite**. With **Striped** (default), or when there is no such file, the Mega fusion is drawn striped as before.
 - **Import Sprites:** drop the files in the Import Sprites folder as usual and the game puts them in the right place on the next start. A solo Mega's file goes by its name (`CHARIZARD_MEGA_X.png`). A Mega fusion's file needs `.mega` in the name: `6.9.mega.png`. Without it, `6.9.png` is a normal Charizard x Blastoise sprite and goes where normal fusion sprites go. The game folder must be writable (not on a phone).
 - Shiny Megas get the usual shiny colours on your sprite too.
+
+## Pick a Mega fusion's sprite
+
+A Mega fusion can show any sprite of its fusion instead of the striped one.
+
+- Open the Pokémon's Summary, then Pokédex > Sprites, and pick a sprite as you would for any fusion. The list is the same as for the normal fusion: this fusion, swapped, and with Options > KIF Settings > **Evolution Sprites** on Shown, every pair of the two evolution lines in both orders. Example: Mega Charizard x Pikachu (Charizard head) can show Charizard x Pikachu, Pikachu x Charizard, Charizard x Raichu, Charmander x Pikachu, Raichu x Charizard and so on.
+- Choosing the sprite it already shows counts as a pick too.
+- The pick is for that one Pokémon. It shows while it is Mega, with a moving rainbow aura around it (the Mega badge stays on the HP bar). It works with either Mega fusion sprite setting, and it beats your own `head.body.png` file.
+- A pick made before the Pokémon goes Mega counts too. When its sprite changes some other way (evolving, a new random sprite), it is drawn striped again until you pick.
 
 ## Limits
 

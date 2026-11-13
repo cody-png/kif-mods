@@ -4,8 +4,11 @@
 # else the mod's own, shiny-shifted the way PIF shifts any sprite. No image for
 # a Mega = the normal sprite.
 #   <MEGA_ID>.png      a Mega (Mega Charizard X: CHARIZARD_MEGA_X.png)
-#   <head>.<body>.png  a Mega fusion (dex numbers), drawn only with the setting
-#                      "Mega fusion sprite: Fusion sprite"; else it is striped
+#   <head>.<body>.png  a Mega fusion (dex numbers; <head>.<body>.mega.png works
+#                      too), drawn only with the setting "Mega fusion sprite:
+#                      Fusion sprite"; else it is striped
+# A sprite picked for the Pokémon on Summary > Pokédex > Sprites (KIF's list:
+# this fusion, swapped, line pairs) beats both, drawn with the Mega aura.
 # KIF's Import Sprites puts such files there (see the end of this file).
 #===============================================================================
 module Megas
@@ -23,8 +26,16 @@ module Megas
 
   # The player's own file for a Mega (id) or Mega fusion ("head.body"), or nil
   def self.player_sprite(name)
-    path = "#{PLAYER_DIR}/#{name}.png"
-    return File.exist?(path) ? path : nil
+    return ["#{PLAYER_DIR}/#{name}.png", "#{PLAYER_DIR}/#{name}.mega.png"].find { |p| File.exist?(p) }
+  end
+
+  # A sprite was picked for this fusion on its Sprites page (and is still on)
+  def self.picked?(pkmn)
+    ps = pkmn.pif_sprite
+    return false if !ps || !pkmn.instance_variable_get(:@megas_sprite_pick)
+    # Random Sprites Off: KIF draws another species' pick only with its own mark
+    return false if !$PokemonSystem.random_sprites && ps.species != pkmn.species && !pkmn.kif_ls_pick
+    return true
   end
 
   def self.sprite_path(id); player_sprite(id) || graphic("Battlers", id); end
@@ -102,7 +113,9 @@ module GameData
       def sprite_bitmap_from_pokemon(pkmn, *args)
         id = pkmn && !pkmn.egg? && Megas.current(pkmn)
         make_shiny = args[2] != false   # 4th argument (KIF): false = draw it not shiny
-        if id.is_a?(Array)   # Mega fusion: the player's file (if the setting is on), else the halves striped, else the fusion sprite + badge + aura
+        if id.is_a?(Array)   # Mega fusion: the picked sprite + aura, else the player's file (if the setting is on), else the halves striped, else the fusion sprite + aura
+          picked = Megas.picked?(pkmn) && megas_sprite_bitmap_from_pokemon(pkmn, *args)
+          return Megas.decorate!(picked) if picked   # nil (no bitmap at all): as with no pick
           own = Megas.fusion_sprite_path(pkmn)
           return Megas.file_bitmap(own, pkmn, make_shiny) if own
           return Megas.striped_fusion(pkmn, id, make_shiny) || Megas.decorate!(megas_sprite_bitmap_from_pokemon(pkmn, *args))
@@ -112,6 +125,38 @@ module GameData
         return Megas.file_bitmap(path, pkmn, make_shiny)
       end
     end
+  end
+end
+
+# Summary > Pokédex > Sprites: a pick made for a fusion is drawn while it is
+# Mega too (any other change of its sprite drops the mark)
+class Pokemon
+  alias megas_pif_sprite_set pif_sprite= unless method_defined?(:megas_pif_sprite_set)
+  def pif_sprite=(value)
+    @megas_sprite_pick = nil
+    return megas_pif_sprite_set(value)
+  end
+end
+
+class PokemonPokedexInfo_Scene
+  alias megas_swap_main_sprite swap_main_sprite unless method_defined?(:megas_swap_main_sprite)
+  def swap_main_sprite(*args)
+    ret = megas_swap_main_sprite(*args)
+    @pokemon.instance_variable_set(:@megas_sprite_pick, true) if @pokemon && @pokemon.isFusion? && @pokemon.pif_sprite
+    return ret
+  end
+
+  # Use on the sprite it already shows: PIF only says so, but for a fusion
+  # that is a pick too (its normal sprite instead of the stripes)
+  alias megas_select_species_sprite select_species_sprite unless method_defined?(:megas_select_species_sprite)
+  def select_species_sprite(*args)
+    main = @pokemon && @pokemon.isFusion? && @available && @available.length > 1 && is_main_sprite
+    ret = megas_select_species_sprite(*args)
+    if main
+      @pokemon.pif_sprite ||= @selected_pif_sprite   # Random Sprites Off: it shows the species' sprite, this one
+      @pokemon.instance_variable_set(:@megas_sprite_pick, true)
+    end
+    return ret
   end
 end
 
